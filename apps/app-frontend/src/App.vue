@@ -81,8 +81,18 @@ import { hide_ads_window, init_ads_window, show_ads_window } from '@/helpers/ads
 import { debugAnalytics, optInAnalytics, optOutAnalytics, trackEvent } from '@/helpers/analytics'
 import { check_reachable } from '@/helpers/auth.js'
 import { get_user, get_version } from '@/helpers/cache.js'
-import { command_listener, warning_listener } from '@/helpers/events.js'
-import { install_create_modpack_instance, install_get_modpack_preview, install_import_curseforge_modpack, install_open_cf_urls, install_scan_folder_for_mods } from '@/helpers/install'
+import {
+  command_listener,
+  minecraft_auth_signed_out_listener,
+  warning_listener,
+} from '@/helpers/events.js'
+import {
+  install_create_modpack_instance,
+  install_get_modpack_preview,
+  install_import_curseforge_modpack,
+  install_open_cf_urls,
+  install_scan_folder_for_mods,
+} from '@/helpers/install'
 import { list, run } from '@/helpers/instance'
 import { cancelLogin, get as getCreds, login, logout } from '@/helpers/mr_auth.ts'
 import { mergeUrlQuery, parseModrinthLink } from '@/helpers/project-links.ts'
@@ -657,6 +667,18 @@ provide('accountsCard', accounts)
 const sidebarSkinPreview = ref(null)
 
 command_listener(handleCommand)
+
+// Registered here, during synchronous setup, rather than in setupApp: setupApp only
+// runs after initialize_state resolves, by which point AccountsCard may already have
+// triggered an auto sign-out via get_default_user. The signed-out event is
+// fire-and-forget, so the listener must be live before any account refresh can emit it.
+minecraft_auth_signed_out_listener((e) => {
+	error.showError(new Error(e.message))
+	// The backend has already removed the account; refresh the sidebar so it does
+	// not keep listing it when the sign-out was detected outside AccountsCard's own
+	// refresh path (e.g. while launching an instance).
+	accounts.value?.refreshValues()
+})
 
 async function handleCommand(e) {
 	if (!e) return
