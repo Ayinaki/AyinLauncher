@@ -1,44 +1,19 @@
 name: Release
 'on':
   workflow_dispatch: null
-  # No paths filter: release-please only cuts a release for releasable commits,
-  # so running it on every push costs one short job and removes the trap where a
-  # fix outside apps/ packages/ .github/ (rust-toolchain.toml, .gitattributes)
-  # silently never triggered a release.
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 concurrency:
   group: '${{ github.workflow }}'
   cancel-in-progress: false
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 jobs:
-  release-please:
-    runs-on: blacksmith-2vcpu-ubuntu-2204
-    outputs:
-      manifest: '${{ toJSON(steps.rp.outputs) }}'
-    steps:
-      - name: Generate App Token
-        uses: tibdex/github-app-token@v2
-        id: generate-token
-        with:
-          app_id: '${{ secrets.APP_ID }}'
-          private_key: '${{ secrets.APP_PRIVATE_KEY }}'
-      - name: Release Please
-        id: rp
-        uses: GoogleCloudPlatform/release-please-action@v4.1.3
-        with:
-          token: '${{ steps.generate-token.outputs.token }}'
   build:
     name: Build
-    needs:
-      - release-please
-    if: >-
-      ${{ fromJSON(needs.release-please.outputs.manifest).releases_created ==
-      'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -49,9 +24,6 @@ jobs:
     runs-on: '${{ matrix.platform }}'
     steps:
       - uses: actions/checkout@v4
-      # The theseus crate (packages/app-lib) builds a bundled Java component via
-      # Gradle 9.1 in its build.rs, which needs JDK 17+ to run; the runners
-      # default to JDK 11, so pin 17 (the Java toolchain target) for every leg.
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -69,9 +41,6 @@ jobs:
         with:
           components: 'rustfmt, clippy'
       - name: Setup rust cache
-        # `!` excludes cannot keep bundles out of this cache: actions/cache globs
-        # the ancestor directories too and tar recurses into them, re-adding every
-        # "excluded" file. Stale bundles are removed below instead.
         uses: actions/cache@v4
         with:
           path: target/**
@@ -124,16 +93,6 @@ jobs:
         if: 'startsWith(matrix.platform, ''macos'')'
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
-          ENABLE_CODE_SIGNING: '${{ secrets.CSC_LINK }}'
-          APPLE_CERTIFICATE: '${{ secrets.CSC_LINK }}'
-          APPLE_CERTIFICATE_PASSWORD: '${{ secrets.CSC_KEY_PASSWORD }}'
-          APPLE_SIGNING_IDENTITY: '${{ secrets.APPLE_SIGNING_IDENTITY }}'
-          # Notarization intentionally disabled: APPLE_ID and APPLE_PASSWORD are
-          # omitted so Tauri Developer ID-signs the app but skips notarization.
-          # The app stays validly signed (required for in-place auto-updates to
-          # launch), but the fresh-install .dmg will trip Gatekeeper. Restore the
-          # APPLE_ID / APPLE_PASSWORD (app-specific) secrets to re-enable it.
-          APPLE_TEAM_ID: '${{ secrets.APPLE_TEAM_ID }}'
           TAURI_SIGNING_PRIVATE_KEY: '${{ secrets.TAURI_PRIVATE_KEY }}'
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: '${{ secrets.TAURI_KEY_PASSWORD }}'
       - name: build app
@@ -146,22 +105,6 @@ jobs:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           TAURI_SIGNING_PRIVATE_KEY: '${{ secrets.TAURI_PRIVATE_KEY }}'
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: '${{ secrets.TAURI_KEY_PASSWORD }}'
-      - name: Sign files with Trusted Signing
-        if: 'startsWith(matrix.platform, ''windows'')'
-        uses: azure/trusted-signing-action@v0.5.1
-        with:
-          azure-tenant-id: '${{ secrets.AZURE_TENANT_ID }}'
-          azure-client-id: '${{ secrets.AZURE_CLIENT_ID }}'
-          azure-client-secret: '${{ secrets.AZURE_CLIENT_SECRET }}'
-          endpoint: 'https://weu.codesigning.azure.net/'
-          trusted-signing-account-name: marcusklauncher
-          certificate-profile-name: MarcuskStudioLauncher
-          files-folder: '${{ github.workspace }}\target\release\bundle'
-          files-folder-filter: 'msi,exe'
-          files-folder-recurse: true
-          file-digest: SHA256
-          timestamp-rfc3161: 'http://timestamp.acs.microsoft.com'
-          timestamp-digest: SHA256
       - name: 'upload ${{ matrix.platform }}'
         uses: actions/upload-artifact@v4
         with:
@@ -187,137 +130,124 @@ jobs:
             target/release/bundle/nsis/*.exe
             target/release/bundle/nsis/*.nsis.zip
             target/release/bundle/nsis/*.nsis.zip.sig
-  upload-s3:
+
+  publish:
     needs:
-      - release-please
       - build
     runs-on: ubuntu-latest
     steps:
-      - name: Get version from release-please
-        id: get_version
-        env:
-          RELEASED_VERSION: >-
-            ${{ fromJSON(needs.release-please.outputs.manifest).version }}
-        run: |
-          if [ -z "$RELEASED_VERSION" ] || [ "$RELEASED_VERSION" = "null" ]; then
-            echo "::error::release-please did not report a released version"
-            exit 1
-          fi
-          echo "version=$RELEASED_VERSION" >> "$GITHUB_OUTPUT"
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Print directory structure
-        run: ls -R artifacts
-      - name: Generate update manifest
+      - name: Flatten files and generate update manifest
         id: generate_manifest
-        env:
-          DOWNLOAD_URL_BASE: 'https://cdn.marcuskstudio.live'
-          VERSION: '${{ steps.get_version.outputs.version }}'
-        run: >
-          # Read signatures into variables
+        shell: bash
+        run: |
+          mkdir -p dist
 
-          DARWIN_SIGNATURE=$(cat
-          artifacts/macos-latest/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig)
+          # Find and move all build artifacts flatly into dist/
+          find artifacts -type f \( \
+            -name "*.dmg" -o \
+            -name "*.app.tar.gz" -o \
+            -name "*.app.tar.gz.sig" -o \
+            -name "*.AppImage" -o \
+            -name "*.AppImage.tar.gz" -o \
+            -name "*.AppImage.tar.gz.sig" -o \
+            -name "*.deb" -o \
+            -name "*.rpm" -o \
+            -name "*.msi" -o \
+            -name "*.msi.zip" -o \
+            -name "*.msi.zip.sig" -o \
+            -name "*.exe" -o \
+            -name "*.nsis.zip" -o \
+            -name "*.nsis.zip.sig" \
+          \) -exec cp {} dist/ \;
 
-          LINUX_SIGNATURE=$(cat
-          artifacts/ubuntu-22.04/release/bundle/appimage/*.AppImage.tar.gz.sig)
+          echo "Contents of dist:"
+          ls -la dist/
 
-          WINDOWS_SIGNATURE=$(cat
-          "artifacts/windows-latest/release/bundle/nsis/MARCUSK
-          Launcher_${VERSION}_x64-setup.nsis.zip.sig")
+          TAG_NAME="${{ github.ref_name }}"
+          VERSION="${TAG_NAME#v}"
+          DOWNLOAD_URL_BASE="https://github.com/${{ github.repository }}/releases/download/${TAG_NAME}"
 
+          # Helper function to find a file matching pattern in dist/
+          find_file() {
+            find dist -maxdepth 1 -type f -name "$1" | head -n 1
+          }
 
-          # Generate JSON file
+          # Read signature files dynamically
+          DARWIN_SIG_FILE=$(find_file "*.app.tar.gz.sig")
+          LINUX_SIG_FILE=$(find_file "*.AppImage.tar.gz.sig")
+          WINDOWS_SIG_FILE=$(find_file "*.nsis.zip.sig")
 
-          cat > update-manifest.json <<EOF
+          DARWIN_SIGNATURE=""
+          [ -f "$DARWIN_SIG_FILE" ] && DARWIN_SIGNATURE=$(cat "$DARWIN_SIG_FILE")
 
+          LINUX_SIGNATURE=""
+          [ -f "$LINUX_SIG_FILE" ] && LINUX_SIGNATURE=$(cat "$LINUX_SIG_FILE")
+
+          WINDOWS_SIGNATURE=""
+          [ -f "$WINDOWS_SIG_FILE" ] && WINDOWS_SIGNATURE=$(cat "$WINDOWS_SIG_FILE")
+
+          DARWIN_TAR=$(basename $(find_file "*.app.tar.gz") 2>/dev/null || echo "")
+          DARWIN_DMG=$(basename $(find_file "*.dmg") 2>/dev/null || echo "")
+
+          LINUX_TAR=$(basename $(find_file "*.AppImage.tar.gz") 2>/dev/null || echo "")
+          LINUX_APPIMAGE=$(basename $(find_file "*.AppImage") 2>/dev/null || echo "")
+          LINUX_DEB=$(basename $(find_file "*.deb") 2>/dev/null || echo "")
+          LINUX_RPM=$(basename $(find_file "*.rpm") 2>/dev/null || echo "")
+
+          WINDOWS_ZIP=$(basename $(find_file "*.nsis.zip") 2>/dev/null || echo "")
+          WINDOWS_EXE=$(basename $(find_file "*.exe") 2>/dev/null || echo "")
+
+          cat > dist/update-manifest.json <<EOF
           {
             "version": "${VERSION}",
-            "notes": "A new version of the MARCUSK Launcher is out!",
+            "notes": "Release ${TAG_NAME}",
             "pub_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
             "platforms": {
               "darwin-x86_64": {
                 "signature": "${DARWIN_SIGNATURE}",
-                "url": "${DOWNLOAD_URL_BASE}/releases/${VERSION}/macos-latest/universal-apple-darwin/release/bundle/macos/MARCUSK%20Launcher.app.tar.gz",
+                "url": "${DOWNLOAD_URL_BASE}/${DARWIN_TAR}",
                 "install_urls": [
-                  "${DOWNLOAD_URL_BASE}/releases/${VERSION}/macos-latest/universal-apple-darwin/release/bundle/dmg/MARCUSK%20Launcher_${VERSION}_universal.dmg"
+                  "${DOWNLOAD_URL_BASE}/${DARWIN_DMG}"
                 ]
               },
               "darwin-aarch64": {
                 "signature": "${DARWIN_SIGNATURE}",
-                "url": "${DOWNLOAD_URL_BASE}/releases/${VERSION}/macos-latest/universal-apple-darwin/release/bundle/macos/MARCUSK%20Launcher.app.tar.gz",
+                "url": "${DOWNLOAD_URL_BASE}/${DARWIN_TAR}",
                 "install_urls": [
-                  "${DOWNLOAD_URL_BASE}/releases/${VERSION}/macos-latest/universal-apple-darwin/release/bundle/macos/MARCUSK%20Launcher.app.tar.gz"
+                  "${DOWNLOAD_URL_BASE}/${DARWIN_TAR}"
                 ]
               },
               "linux-x86_64": {
                 "signature": "${LINUX_SIGNATURE}",
-                "url": "${DOWNLOAD_URL_BASE}/releases/${VERSION}/ubuntu-22.04/release/bundle/appimage/MARCUSK%20Launcher_${VERSION}_amd64.AppImage.tar.gz",
+                "url": "${DOWNLOAD_URL_BASE}/${LINUX_TAR}",
                 "install_urls": [
-                  "${DOWNLOAD_URL_BASE}/releases/${VERSION}/ubuntu-22.04/release/bundle/deb/MARCUSK%20Launcher_${VERSION}_amd64.deb",
-                  "${DOWNLOAD_URL_BASE}/releases/${VERSION}/ubuntu-22.04/release/bundle/appimage/MARCUSK%20Launcher_${VERSION}_amd64.AppImage",
-                  "${DOWNLOAD_URL_BASE}/releases/${VERSION}/ubuntu-22.04/release/bundle/rpm/MARCUSK%20Launcher-${VERSION}-1.x86_64.rpm"
+                  "${DOWNLOAD_URL_BASE}/${LINUX_DEB}",
+                  "${DOWNLOAD_URL_BASE}/${LINUX_APPIMAGE}",
+                  "${DOWNLOAD_URL_BASE}/${LINUX_RPM}"
                 ]
               },
               "windows-x86_64": {
                 "signature": "${WINDOWS_SIGNATURE}",
-                "url": "${DOWNLOAD_URL_BASE}/releases/${VERSION}/windows-latest/release/bundle/nsis/MARCUSK%20Launcher_${VERSION}_x64-setup.nsis.zip",
+                "url": "${DOWNLOAD_URL_BASE}/${WINDOWS_ZIP}",
                 "install_urls": [
-                  "${DOWNLOAD_URL_BASE}/releases/${VERSION}/windows-latest/release/bundle/nsis/MARCUSK%20Launcher_${VERSION}_x64-setup.exe"
+                  "${DOWNLOAD_URL_BASE}/${WINDOWS_EXE}"
                 ]
               }
             }
           }
-
           EOF
-      - name: Upload artifacts to R2
-        uses: ryand56/r2-upload-action@latest
+
+          cp dist/update-manifest.json dist/latest.json
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          r2-account-id: '${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'
-          r2-access-key-id: '${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}'
-          r2-secret-access-key: '${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}'
-          r2-bucket: launcherbinaries
-          destination-dir: 'releases/${{ steps.get_version.outputs.version }}'
-          source-dir: artifacts
-          keep-file-fresh: true
-      - name: Upload update manifest to R2
-        uses: ryand56/r2-upload-action@latest
-        with:
-          r2-account-id: '${{ secrets.CLOUDFLARE_ACCOUNT_ID }}'
-          r2-access-key-id: '${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}'
-          r2-secret-access-key: '${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}'
-          r2-bucket: launcherbinaries
-          source-dir: update-manifest.json
-          destination-dir: ./
-          keep-file-fresh: true
-  create-sentry-release:
-    needs:
-      - release-please
-      - build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Get version from release-please
-        id: get_version
+          files: dist/*
+          tag_name: ${{ github.ref_name }}
         env:
-          RELEASED_VERSION: >-
-            ${{ fromJSON(needs.release-please.outputs.manifest).version }}
-        run: |
-          if [ -z "$RELEASED_VERSION" ] || [ "$RELEASED_VERSION" = "null" ]; then
-            echo "::error::release-please did not report a released version"
-            exit 1
-          fi
-          echo "version=$RELEASED_VERSION" >> "$GITHUB_OUTPUT"
-      - name: Create Sentry release
-        uses: getsentry/action-release@v3
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        with:
-          environment: production
-          version: ${{ steps.get_version.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
