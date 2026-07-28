@@ -1,0 +1,36 @@
+{
+    "packages": {
+      ".": {
+        "package-name": "apps",
+        "component": "apps",
+        "release-type": "simple",
+        "changelog-path": "apps/CHANGELOG.md",
+        "last-release-sha": "8c5e8427b782e3b736f87faae9802a4c3e6833d9",
+        "prerelease": false,
+        "include-v-in-tag": true,
+        "pull-request-header": "Hella Better than Helios 🚀",
+        "extra-files": [
+          {
+            "type": "json",
+            "path": "apps/app/tauri.conf.json",
+            "jsonpath": "$.version"
+          }
+        ]
+      }
+    },
+    "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+    "changelog-sections": [
+      {
+        "section": "✨ Features",
+        "type": "feat"
+      },
+      {
+        "section": "🐛 Bugfixes",
+        "type": "fix"
+      },
+      {
+        "section": "👽 Miscellaneous",
+        "type": "chore"
+      }
+    ]
+  }
