@@ -66,6 +66,7 @@ import MinecraftAuthErrorModal from '@/components/ui/minecraft-auth-error-modal/
 import AppSettingsModal from '@/components/ui/modal/AppSettingsModal.vue'
 import AuthGrantFlowWaitModal from '@/components/ui/modal/AuthGrantFlowWaitModal.vue'
 import InstallToPlayModal from '@/components/ui/modal/InstallToPlayModal.vue'
+import MandatoryAppUpdateModal from '@/components/ui/modal/MandatoryAppUpdateModal.vue'
 import ModpackAlreadyInstalledModal from '@/components/ui/modal/ModpackAlreadyInstalledModal.vue'
 import UpdateToPlayModal from '@/components/ui/modal/UpdateToPlayModal.vue'
 import NavButton from '@/components/ui/NavButton.vue'
@@ -261,6 +262,7 @@ onMounted(async () => {
 	document.querySelector('body').addEventListener('auxclick', handleAuxClick)
 
 	checkUpdates()
+	mandatoryAppUpdateModal.value?.checkForMandatoryUpdate()
 
 	// Choose a random background
 	const randomKey = backgroundKeys[Math.floor(Math.random() * backgroundKeys.length)]
@@ -559,6 +561,7 @@ const addServerToInstanceModal = ref()
 const incompatibilityWarningModal = ref()
 const installToPlayModal = ref()
 const updateToPlayModal = ref()
+const mandatoryAppUpdateModal = ref()
 
 const modrinthLoginFlowWaitModal = ref()
 
@@ -1529,6 +1532,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 	/>
 	<InstallToPlayModal ref="installToPlayModal" />
 	<UpdateToPlayModal ref="updateToPlayModal" />
+	<MandatoryAppUpdateModal ref="mandatoryAppUpdateModal" />
 </template>
 
 <style lang="scss" scoped>

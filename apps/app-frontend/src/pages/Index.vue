@@ -498,7 +498,7 @@ const triggerCurseForgeImport = async () => {
 					>
 						<div v-if="selectedModpack" class="flex-shrink-0 !w-[300px]">
 							<template v-if="installed[selectedModpack.project_id]">
-								<div class="tactile-button tactile-button--orange">
+								<div class="tactile-button tactile-button--blue">
 									<ButtonStyled
 										size="2xlarge"
 										type="transparent"

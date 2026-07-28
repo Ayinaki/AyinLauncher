@@ -18,5 +18,5 @@
 		"@modrinth/app-lib": "workspace:*",
 		"@modrinth/daedalus": "workspace:*"
 	},
-	"version": "2.2.3"
+	"version": "1.0.0"
 }

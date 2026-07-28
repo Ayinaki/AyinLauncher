@@ -19,7 +19,7 @@
 			class="flex text-sm items-center gap-2 py-1.5 px-3 rounded-xl"
 			:class="
 				selectedProcess
-					? 'bg-gradient-to-r from-[#FF6B35] via-[#F05B32] to-[#E59256] [box-shadow:_0_0_20px_rgba(249,115,22,0.9)] animate-pulse text-white'
+					? 'bg-gradient-to-r from-[#384B9B] via-[#4165B0] to-[#83CDFB] [box-shadow:_0_0_20px_rgba(65,101,176,0.9)] animate-pulse text-white'
 					: 'bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600'
 			"
 		>

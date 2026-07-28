@@ -1111,7 +1111,7 @@ await loadSkins()
 				<p class="text-lg m-0">
 					{{ formatMessage(messages.signInDescription) }}
 				</p>
-				<div v-show="accountsCard" class="tactile-button tactile-button--orange">
+				<div v-show="accountsCard" class="tactile-button tactile-button--blue">
 					<ButtonStyled type="transparent" :disabled="accountsCard.loginDisabled">
 						<button :disabled="accountsCard.loginDisabled" @click="login">
 							<LogInIcon v-if="!accountsCard.loginDisabled" />

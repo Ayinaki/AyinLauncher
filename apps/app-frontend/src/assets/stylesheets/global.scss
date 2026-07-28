@@ -260,11 +260,12 @@ textarea {
 		filter 0.18s ease;
 }
 
-.tactile-button--orange {
-	--tactile-top: #f2703a;
-	--tactile-bot: #e05f2b;
-	--tactile-sh: 224, 95, 43;
-	--tactile-deep: #b8481d;
+.tactile-button--orange,
+.tactile-button--blue {
+	--tactile-top: #4165b0;
+	--tactile-bot: #384b9b;
+	--tactile-sh: 65, 101, 176;
+	--tactile-deep: #002355;
 }
 
 // Only the wrapper should paint. ButtonStyled gives the inner button its own
