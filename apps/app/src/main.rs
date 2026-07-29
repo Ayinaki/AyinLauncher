@@ -329,40 +329,39 @@ fn main() {
 
                         set_changelog_toast(Some(update.version.clone()));
 
-                        let app_handle = app.clone();
                         let handle = tokio::task::spawn_blocking(move || {
-                            let bytes_res = std::fs::read(&temp_path);
-                            let _ = std::fs::remove_file(&temp_path);
-                            let update_bytes = match bytes_res {
+                            let update_bytes = match std::fs::read(&temp_path) {
                                 Ok(b) => b,
                                 Err(e) => {
                                     tracing::error!(
                                         "Failed to read downloaded update file {temp_path:?}: {e}"
                                     );
                                     set_changelog_toast(None);
-                                    return;
+                                    return false;
                                 }
                             };
 
-                            let update = if should_restart {
+                            let update_to_install = if should_restart {
                                 (*update).clone()
                             } else {
                                 (*update).clone().restart_after_install(false)
                             };
-                            match update.install(&update_bytes) {
+
+                            match update_to_install.install(&update_bytes) {
                                 Ok(()) => {
+                                    let _ = std::fs::remove_file(&temp_path);
                                     if should_restart {
                                         tracing::info!(
                                             "Pending update installed successfully (version {}); restarting because user requested reload",
                                             update.version
                                         );
-                                        app_handle.restart();
                                     } else {
                                         tracing::info!(
                                             "Pending update installed successfully (version {}); exiting without relaunch (user did not request reload)",
                                             update.version
                                         );
                                     }
+                                    true
                                 }
                                 Err(e) => {
                                     tracing::error!(
@@ -378,10 +377,16 @@ fn main() {
                                         .alert()
                                         .show()
                                         .unwrap();
+                                    false
                                 }
                             }
                         });
-                        let _ = tauri::async_runtime::block_on(handle);
+
+                        if let Ok(true) = tauri::async_runtime::block_on(handle) {
+                            if should_restart {
+                                app.restart();
+                            }
+                        }
                     }
                 }
                 #[cfg(target_os = "macos")]
