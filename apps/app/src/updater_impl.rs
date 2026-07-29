@@ -23,7 +23,7 @@ impl Default for SharedHttpClient {
         let client = ClientBuilder::new()
             .user_agent(launcher_user_agent())
             .build()
-            .expect("failed to create default reqwest client");
+            .unwrap_or_else(|_| reqwest::Client::new());
         Self(client)
     }
 }
@@ -166,6 +166,8 @@ pub async fn enqueue_update_for_installation<R: Runtime>(
 pub fn remove_enqueued_update<R: Runtime>(webview: Webview<R>) {
     let pending_data = webview.state::<PendingUpdateData>().inner();
     if let Some((_, temp_path)) = pending_data.0.lock().unwrap().take() {
-        let _ = std::fs::remove_file(temp_path);
+        tauri::async_runtime::spawn(async move {
+            let _ = tokio::fs::remove_file(temp_path).await;
+        });
     }
 }

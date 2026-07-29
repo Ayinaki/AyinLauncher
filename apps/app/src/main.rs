@@ -329,55 +329,59 @@ fn main() {
 
                         set_changelog_toast(Some(update.version.clone()));
 
-                        let bytes_res = std::fs::read(&temp_path);
-                        let _ = std::fs::remove_file(&temp_path);
-                        let update_bytes = match bytes_res {
-                            Ok(b) => b,
-                            Err(e) => {
-                                tracing::error!(
-                                    "Failed to read downloaded update file {temp_path:?}: {e}"
-                                );
-                                set_changelog_toast(None);
-                                return;
-                            }
-                        };
+                        let app_handle = app.clone();
+                        let handle = tokio::task::spawn_blocking(move || {
+                            let bytes_res = std::fs::read(&temp_path);
+                            let _ = std::fs::remove_file(&temp_path);
+                            let update_bytes = match bytes_res {
+                                Ok(b) => b,
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to read downloaded update file {temp_path:?}: {e}"
+                                    );
+                                    set_changelog_toast(None);
+                                    return;
+                                }
+                            };
 
-                        let update = if should_restart {
-                            (*update).clone()
-                        } else {
-                            (*update).clone().restart_after_install(false)
-                        };
-                        match update.install(&update_bytes) {
-                            Ok(()) => {
-                                if should_restart {
-                                    tracing::info!(
-                                        "Pending update installed successfully (version {}); restarting because user requested reload",
+                            let update = if should_restart {
+                                (*update).clone()
+                            } else {
+                                (*update).clone().restart_after_install(false)
+                            };
+                            match update.install(&update_bytes) {
+                                Ok(()) => {
+                                    if should_restart {
+                                        tracing::info!(
+                                            "Pending update installed successfully (version {}); restarting because user requested reload",
+                                            update.version
+                                        );
+                                        app_handle.restart();
+                                    } else {
+                                        tracing::info!(
+                                            "Pending update installed successfully (version {}); exiting without relaunch (user did not request reload)",
+                                            update.version
+                                        );
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Pending update install failed (version {}): {e}",
                                         update.version
                                     );
-                                    app.restart();
-                                } else {
-                                    tracing::info!(
-                                        "Pending update installed successfully (version {}); exiting without relaunch (user did not request reload)",
-                                        update.version
-                                    );
+                                    set_changelog_toast(None);
+
+                                    DialogBuilder::message()
+                                        .set_level(MessageLevel::Error)
+                                        .set_title("Update error")
+                                        .set_text(format!("Failed to install update due to an error:\n{e}"))
+                                        .alert()
+                                        .show()
+                                        .unwrap();
                                 }
                             }
-                            Err(e) => {
-                                tracing::error!(
-                                    "Pending update install failed (version {}): {e}",
-                                    update.version
-                                );
-                                set_changelog_toast(None);
-
-                                DialogBuilder::message()
-                                    .set_level(MessageLevel::Error)
-                                    .set_title("Update error")
-                                    .set_text(format!("Failed to install update due to an error:\n{e}"))
-                                    .alert()
-                                    .show()
-                                    .unwrap();
-                            }
-                        }
+                        });
+                        let _ = tauri::async_runtime::block_on(handle);
                     }
                 }
                 #[cfg(target_os = "macos")]
