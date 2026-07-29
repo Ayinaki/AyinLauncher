@@ -35,9 +35,6 @@ argon2 = { version = "0.5.3", features = ["std"] }
 ariadne = { path = "packages/ariadne" }
 async-minecraft-ping = { path = "packages/async-minecraft-ping" }
 async-recursion = "1.1.1"
-async-stripe = { version = "0.41.0", default-features = false, features = [
-  "runtime-tokio-hyper-rustls",
-] }
 async-trait = "0.1.89"
 async-tungstenite = { version = "0.31.0", default-features = false, features = [
   "futures-03-sink"
@@ -151,11 +148,6 @@ rust_decimal = { version = "1.39.0", features = [
   "serde-with-str"
 ] }
 rust_iso3166 = "0.1.14"
-rust-s3 = { version = "0.37.0", default-features = false, features = [
-  "fail-on-err",
-  "tags",
-  "tokio-rustls-tls",
-] }
 rustls = "0.23.32"
 rusty-money = "0.4.1"
 scalar_api_reference = { version = "0.2.2", default-features = false }
