@@ -8,7 +8,6 @@ chrono = { workspace = true, features = ["serde"] }
 either = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_bytes = { workspace = true }
 serde_cbor = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
