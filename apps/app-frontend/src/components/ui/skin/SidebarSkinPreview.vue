@@ -13,7 +13,6 @@ const themeStore = useTheming()
 const skinTexture = ref('')
 const skinModel = ref<SkinModel>('CLASSIC')
 const partnerModel = ref<SkinModel>('CLASSIC')
-const debug = computed(() => themeStore.getFeatureFlag('dual_skin_debug'))
 
 const isLoading = ref(true)
 
@@ -72,7 +71,6 @@ refresh()
 			:left-model="skinModel"
 			:right-texture-src="PARTNER_SKIN"
 			:right-model="partnerModel"
-			:debug="debug"
 		/>
 	</div>
 </template>

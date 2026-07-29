@@ -299,8 +299,11 @@ impl Credentials {
                     self.offline_profile.id
                 );
 
-                let removed =
-                    Self::remove(self.offline_profile.id, exec).await?;
+                let removed = if let Some(exec) = exec {
+                    Self::remove(self.offline_profile.id, exec).await?
+                } else {
+                    0
+                };
 
                 // Notify the frontend directly, rather than relying on this error
                 // reaching a caller that surfaces the sign-in modal. Two conditions

@@ -1422,7 +1422,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 						backgroundImage: randomBackground ? `url(${randomBackground})` : undefined,
 						backgroundSize: 'cover',
 						backgroundPosition: 'center',
-						filter: 'blur(20px)',
+						filter: 'blur(5px)',
 						transform: 'scale(1.05)'
 					}"
 				></div>

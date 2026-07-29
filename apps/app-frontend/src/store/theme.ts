@@ -10,7 +10,6 @@ export const DEFAULT_FEATURE_FLAGS = {
 	skip_non_essential_warnings: false,
 	i18n_debug: false,
 	show_instance_play_time: true,
-	dual_skin_debug: false,
 	curseforge_browsing_enabled: false,
 }
 
