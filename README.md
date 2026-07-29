@@ -7,7 +7,7 @@
 
 ## Ayin Launcher
 
-Ayin Launcher is a custom fork of the Modrinth/MarcusK launcher, personalized for private use by [Ayinaki](https://github.com/Ayinaki).
+Ayin Launcher is a custom fork of the Modrinth launcher, personalized for private use by [Ayinaki](https://github.com/Ayinaki).
 
 This is a personal project, not an officially distributed or supported product. There is no public website, support channel, or Discord at this time.
 
