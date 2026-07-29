@@ -264,6 +264,7 @@ fn main() {
         .plugin(api::ads::init())
         .plugin(api::friends::init())
         .plugin(api::worlds::init())
+        .manage(SharedHttpClient::default())
         .manage(PendingUpdateData::default())
         .invoke_handler(tauri::generate_handler![
             initialize_state,
@@ -287,14 +288,16 @@ fn main() {
                 #[cfg(not(any(feature = "updater", target_os = "macos")))]
                 let _ = app;
 
-                if matches!(&event, tauri::RunEvent::ExitRequested { .. })
-                    && let Err(error) = tauri::async_runtime::block_on(
-                        theseus::minecraft_skins::flush_pending_skin_change(),
-                    )
-                {
-                    tracing::warn!(
-                        "Failed to flush pending Minecraft skin change before exit: {error}"
-                    );
+                if matches!(&event, tauri::RunEvent::ExitRequested { .. }) {
+                    tauri::async_runtime::spawn(async {
+                        if let Err(error) =
+                            theseus::minecraft_skins::flush_pending_skin_change().await
+                        {
+                            tracing::warn!(
+                                "Failed to flush pending Minecraft skin change before exit: {error}"
+                            );
+                        }
+                    });
                 }
 
                 #[cfg(feature = "updater")]
@@ -305,29 +308,46 @@ fn main() {
                             s.restart_after_pending_update.load(Ordering::Relaxed)
                         })
                         .unwrap_or(false);
-                    if let Some((update, data)) = &*update_data.0.lock().unwrap()
+                    if let Some((update, temp_path)) = update_data.0.lock().unwrap().take()
                     {
                         fn set_changelog_toast(version: Option<String>) {
-                            let toast_result: theseus::Result<()> = tauri::async_runtime::block_on(async move {
-                                let mut settings = settings::get().await?;
-                                settings.pending_update_toast_for_version = version;
-                                settings::set(settings).await?;
-                                Ok(())
+                            tauri::async_runtime::spawn(async move {
+                                let toast_result: theseus::Result<()> = async {
+                                    let mut settings = settings::get().await?;
+                                    settings.pending_update_toast_for_version = version;
+                                    settings::set(settings).await?;
+                                    Ok(())
+                                }
+                                .await;
+                                if let Err(e) = toast_result {
+                                    tracing::warn!(
+                                        "Failed to set pending_update_toast: {e}"
+                                    );
+                                }
                             });
-                            if let Err(e) = toast_result {
-                                tracing::warn!(
-                                    "Failed to set pending_update_toast: {e}"
-                                )
-                            }
                         }
 
                         set_changelog_toast(Some(update.version.clone()));
-                        let update = if should_restart {
-                            (**update).clone()
-                        } else {
-                            (**update).clone().restart_after_install(false)
+
+                        let bytes_res = std::fs::read(&temp_path);
+                        let _ = std::fs::remove_file(&temp_path);
+                        let update_bytes = match bytes_res {
+                            Ok(b) => b,
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to read downloaded update file {temp_path:?}: {e}"
+                                );
+                                set_changelog_toast(None);
+                                return;
+                            }
                         };
-                        match update.install(data) {
+
+                        let update = if should_restart {
+                            (*update).clone()
+                        } else {
+                            (*update).clone().restart_after_install(false)
+                        };
+                        match update.install(&update_bytes) {
                             Ok(()) => {
                                 if should_restart {
                                     tracing::info!(

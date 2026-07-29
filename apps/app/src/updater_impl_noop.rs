@@ -1,6 +1,9 @@
 use crate::api::Result;
 use theseus::ErrorKind;
 
+#[derive(Clone, Default)]
+pub struct SharedHttpClient(pub ());
+
 #[derive(Default)]
 pub struct PendingUpdateData(());
 
