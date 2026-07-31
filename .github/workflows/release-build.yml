@@ -183,16 +183,29 @@ jobs:
           WINDOWS_SIGNATURE=""
           [ -f "$WINDOWS_SIG_FILE" ] && WINDOWS_SIGNATURE=$(cat "$WINDOWS_SIG_FILE")
 
-          DARWIN_TAR=$(basename $(find_file "*.app.tar.gz") 2>/dev/null || echo "")
-          DARWIN_DMG=$(basename $(find_file "*.dmg") 2>/dev/null || echo "")
+          DARWIN_TAR=$(basename "$(find_file "*.app.tar.gz")" 2>/dev/null || echo "")
+          DARWIN_DMG=$(basename "$(find_file "*.dmg")" 2>/dev/null || echo "")
 
-          LINUX_TAR=$(basename $(find_file "*.AppImage.tar.gz") 2>/dev/null || echo "")
-          LINUX_APPIMAGE=$(basename $(find_file "*.AppImage") 2>/dev/null || echo "")
-          LINUX_DEB=$(basename $(find_file "*.deb") 2>/dev/null || echo "")
-          LINUX_RPM=$(basename $(find_file "*.rpm") 2>/dev/null || echo "")
+          LINUX_TAR=$(basename "$(find_file "*.AppImage.tar.gz")" 2>/dev/null || echo "")
+          LINUX_APPIMAGE=$(basename "$(find_file "*.AppImage")" 2>/dev/null || echo "")
+          LINUX_DEB=$(basename "$(find_file "*.deb")" 2>/dev/null || echo "")
+          LINUX_RPM=$(basename "$(find_file "*.rpm")" 2>/dev/null || echo "")
 
-          WINDOWS_ZIP=$(basename $(find_file "*.nsis.zip") 2>/dev/null || echo "")
-          WINDOWS_EXE=$(basename $(find_file "*.exe") 2>/dev/null || echo "")
+          WINDOWS_ZIP=$(basename "$(find_file "*.nsis.zip")" 2>/dev/null || echo "")
+          WINDOWS_EXE=$(basename "$(find_file "*.exe")" 2>/dev/null || echo "")
+
+          urlencode() {
+            echo "$1" | sed 's/ /%20/g'
+          }
+
+          DARWIN_TAR_ENC=$(urlencode "$DARWIN_TAR")
+          DARWIN_DMG_ENC=$(urlencode "$DARWIN_DMG")
+          LINUX_TAR_ENC=$(urlencode "$LINUX_TAR")
+          LINUX_APPIMAGE_ENC=$(urlencode "$LINUX_APPIMAGE")
+          LINUX_DEB_ENC=$(urlencode "$LINUX_DEB")
+          LINUX_RPM_ENC=$(urlencode "$LINUX_RPM")
+          WINDOWS_ZIP_ENC=$(urlencode "$WINDOWS_ZIP")
+          WINDOWS_EXE_ENC=$(urlencode "$WINDOWS_EXE")
 
           cat > dist/update-manifest.json <<EOF
           {
@@ -202,32 +215,32 @@ jobs:
             "platforms": {
               "darwin-x86_64": {
                 "signature": "${DARWIN_SIGNATURE}",
-                "url": "${DOWNLOAD_URL_BASE}/${DARWIN_TAR}",
+                "url": "${DOWNLOAD_URL_BASE}/${DARWIN_TAR_ENC}",
                 "install_urls": [
-                  "${DOWNLOAD_URL_BASE}/${DARWIN_DMG}"
+                  "${DOWNLOAD_URL_BASE}/${DARWIN_DMG_ENC}"
                 ]
               },
               "darwin-aarch64": {
                 "signature": "${DARWIN_SIGNATURE}",
-                "url": "${DOWNLOAD_URL_BASE}/${DARWIN_TAR}",
+                "url": "${DOWNLOAD_URL_BASE}/${DARWIN_TAR_ENC}",
                 "install_urls": [
-                  "${DOWNLOAD_URL_BASE}/${DARWIN_TAR}"
+                  "${DOWNLOAD_URL_BASE}/${DARWIN_TAR_ENC}"
                 ]
               },
               "linux-x86_64": {
                 "signature": "${LINUX_SIGNATURE}",
-                "url": "${DOWNLOAD_URL_BASE}/${LINUX_TAR}",
+                "url": "${DOWNLOAD_URL_BASE}/${LINUX_TAR_ENC}",
                 "install_urls": [
-                  "${DOWNLOAD_URL_BASE}/${LINUX_DEB}",
-                  "${DOWNLOAD_URL_BASE}/${LINUX_APPIMAGE}",
-                  "${DOWNLOAD_URL_BASE}/${LINUX_RPM}"
+                  "${DOWNLOAD_URL_BASE}/${LINUX_DEB_ENC}",
+                  "${DOWNLOAD_URL_BASE}/${LINUX_APPIMAGE_ENC}",
+                  "${DOWNLOAD_URL_BASE}/${LINUX_RPM_ENC}"
                 ]
               },
               "windows-x86_64": {
                 "signature": "${WINDOWS_SIGNATURE}",
-                "url": "${DOWNLOAD_URL_BASE}/${WINDOWS_ZIP}",
+                "url": "${DOWNLOAD_URL_BASE}/${WINDOWS_ZIP_ENC}",
                 "install_urls": [
-                  "${DOWNLOAD_URL_BASE}/${WINDOWS_EXE}"
+                  "${DOWNLOAD_URL_BASE}/${WINDOWS_EXE_ENC}"
                 ]
               }
             }

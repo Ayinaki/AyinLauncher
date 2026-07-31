@@ -2,14 +2,14 @@
 import { Button } from '@modrinth/ui'
 import { invoke } from '@tauri-apps/api/core'
 import { check, type Update } from '@tauri-apps/plugin-updater'
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 
 import AyinAppLogo from '@/assets/ayin_app.svg?component'
 
 import ModalWrapper from './ModalWrapper.vue'
 
 const modal = ref<InstanceType<typeof ModalWrapper> | null>(null)
-const updateObj = ref<Update | null>(null)
+const updateObj = shallowRef<Update | null>(null)
 const version = ref<string>('')
 
 type UpdateStage = 'idle' | 'available' | 'downloading' | 'installed'
