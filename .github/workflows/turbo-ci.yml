@@ -65,6 +65,7 @@ jobs:
     runs-on: ${{ needs.skip-if-clean.outputs.internal == 'true' && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-latest' }}
     needs: [skip-if-clean]
     if: ${{ needs.skip-if-clean.outputs.skip != 'true' }}
+    timeout-minutes: 45
 
     env:
       # Ensure pnpm output is colored in GitHub Actions logs
