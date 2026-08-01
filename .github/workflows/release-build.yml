@@ -195,7 +195,7 @@ jobs:
           WINDOWS_EXE=$(basename "$(find_file "*.exe")" 2>/dev/null || echo "")
 
           urlencode() {
-            echo "$1" | sed 's/ /%20/g'
+            echo "$1" | sed 's/ /./g'
           }
 
           DARWIN_TAR_ENC=$(urlencode "$DARWIN_TAR")
