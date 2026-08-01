@@ -11,6 +11,7 @@ export const DEFAULT_FEATURE_FLAGS = {
 	i18n_debug: false,
 	show_instance_play_time: true,
 	curseforge_browsing_enabled: false,
+	news_feature: false,
 }
 
 export const THEME_OPTIONS = ['dark', 'light', 'oled', 'system'] as const

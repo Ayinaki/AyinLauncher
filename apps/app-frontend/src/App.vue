@@ -402,7 +402,7 @@ async function setupApp() {
 	fetchCredentials()
 
 	setTimeout(() => {
-		if (updatesModal.value) {
+		if (themeStore.featureFlags.news_feature && updatesModal.value) {
 			updatesModal.value.checkAndShowModal()
 		}
 	}, 1000)
@@ -1312,7 +1312,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 				<QuickInstanceSwitcher />
 			</suspense>
 			<div class="flex flex-grow"></div>
-			<NavButton v-tooltip.right="'News'" :to="() => updatesModal?.show()">
+			<NavButton v-if="themeStore.featureFlags.news_feature" v-tooltip.right="'News'" :to="() => updatesModal?.show()">
 				<BellIcon />
 			</NavButton>
 			<NavButton

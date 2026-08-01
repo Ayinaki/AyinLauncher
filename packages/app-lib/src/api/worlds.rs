@@ -918,7 +918,7 @@ pub mod servers {
             hidden: false,
             icon: None,
             ip: "ayinaki.duckdns.org:25565".to_string(),
-            name: "\u{00A7}1Ayin's Server".to_string(),
+            name: "Ayin's Server".to_string(),
             accept_textures: Some(true),
         };
         write(instance_dir, &[default_server]).await
