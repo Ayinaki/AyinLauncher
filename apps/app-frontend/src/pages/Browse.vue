@@ -248,12 +248,15 @@ const featuredProjects = ref<FeaturedProject[]>([])
 
 async function fetchFeaturedProjects() {
 	try {
-		const response = await fetch('https://cdn.ayin.fun/featured4.json')
-		const data: { featured_projects: FeaturedProject[] } = await response.json()
-		featuredProjects.value = data.featured_projects
-		return true
+		const response = await fetch('https://api.modrinth.com/v3/collection/jxEdftkP')
+		const data = await response.json()
+		if (data?.projects && Array.isArray(data.projects)) {
+			featuredProjects.value = data.projects.map((id: string) => ({ id }))
+			return true
+		}
+		return false
 	} catch (error) {
-		handleError(error)
+		handleError(error as Error)
 		featuredProjects.value = []
 		return false
 	}
@@ -269,20 +272,6 @@ const instanceFilters = computed(() => {
 		option: string
 		negative?: boolean
 	}[] = []
-
-	if (fetchSuccessful.value && featuredProjects.value.length > 0) {
-		// Create a single filter with all project IDs joined with OR logic
-		const projectIdOptions = featuredProjects.value.map((project) => `project_id:${project.id}`)
-		filters.push({
-			type: 'project_id',
-			option: projectIdOptions.join(' OR '),
-		})
-	} else {
-		filters.push({
-			type: 'project_id',
-			option: 'project_id:none',
-		})
-	}
 
 	if (instance.value) {
 		const gameVersion = instance.value.game_version
@@ -1099,7 +1088,7 @@ provideBrowseManager({
 </script>
 
 <template>
-	<div class="flex flex-col gap-3 p-6">
+	<div class="flex flex-col gap-3 p-6 h-full min-h-0 overflow-hidden">
 		<BrowsePageLayout />
 		<CreationFlowModal
 			v-if="isServerContext && projectType === 'modpack'"

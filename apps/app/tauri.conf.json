@@ -62,7 +62,7 @@
 		}
 	},
 	"productName": "Ayin Launcher",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"mainBinaryName": "Ayin Launcher",
 	"identifier": "com.ayinaki.ayinlauncher",
 	"app": {

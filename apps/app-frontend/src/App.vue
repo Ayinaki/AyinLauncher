@@ -1709,7 +1709,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 	height: 100%;
 	overflow: auto;
 	overflow-x: hidden;
-	scrollbar-gutter: stable;
 }
 
 .app-contents::before {

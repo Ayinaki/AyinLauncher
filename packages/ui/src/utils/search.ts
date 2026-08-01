@@ -641,6 +641,9 @@ export function useSearch(
 			query.value = String(queryVal)
 			readParams.add('q')
 		})
+		loadQueryParam(['i'], () => {
+			readParams.add('i')
+		})
 
 		for (const key of Object.keys(route.query).filter((key) => !readParams.has(key))) {
 			const types = filters.value.filter((type) => type.query_param === key)

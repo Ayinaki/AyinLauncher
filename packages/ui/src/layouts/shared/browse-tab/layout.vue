@@ -72,7 +72,7 @@ const messages = defineMessages({
 	<template v-if="ctx.installContext?.value && ctx.variant !== 'web'">
 		<div
 			ref="stickyInstallHeaderRef"
-			class="sticky top-0 z-20 -mx-6 -mt-6 rounded-tl-[--radius-xl] border-0 border-b border-solid bg-surface-1 p-3 border-surface-5"
+			class="sticky -top-6 z-20 -mx-6 -mt-6 border-0 border-b border-solid bg-surface-1 p-3 border-surface-5"
 			:class="[isInstallHeaderStuck ? 'border-t' : '']"
 		>
 			<BrowseInstallHeader />
@@ -174,7 +174,7 @@ const messages = defineMessages({
 		:provided-message="lockedMessages?.providedBy"
 	/>
 
-	<div class="search">
+	<div class="search flex-1 min-h-0 overflow-y-auto pr-1">
 		<section v-if="ctx.loading.value" class="offline">
 			<component :is="ctx.loadingComponent ?? LoadingIndicator" />
 		</section>

@@ -32,7 +32,7 @@ pub async fn settings_set(settings: Settings) -> Result<()> {
 pub async fn cancel_directory_change<R: Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<()> {
-    let identifier = &app.config().identifier;
-    settings::cancel_directory_change(identifier).await?;
+    let identifier = crate::get_app_identifier(&app.config().identifier);
+    settings::cancel_directory_change(&identifier).await?;
     Ok(())
 }

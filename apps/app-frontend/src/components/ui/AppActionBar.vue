@@ -1,6 +1,15 @@
 <template>
 	<div class="flex gap-2 items-center">
 		<ButtonStyled
+			color="brand"
+			type="transparent"
+			circular
+		>
+			<button v-tooltip="formatMessage(messages.createNewInstance)" @click="showCreationModal?.()">
+				<PlusIcon />
+			</button>
+		</ButtonStyled>
+		<ButtonStyled
 			v-if="hasActiveLoadingBars && !hasVisibleActiveDownloadToasts"
 			color="brand"
 			type="transparent"
@@ -125,6 +134,7 @@ import {
 	DownloadIcon,
 	DropdownIcon,
 	OnlineIndicatorIcon,
+	PlusIcon,
 	StarIcon,
 	StopCircleIcon,
 	TerminalSquareIcon,
@@ -141,7 +151,7 @@ import {
 } from '@modrinth/ui'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { Dropdown } from 'floating-vue'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AppUpdateButton from '@/components/ui/app-update-button/index.vue'
@@ -158,6 +168,8 @@ const { handleError } = injectNotificationManager()
 const popupNotificationManager = injectPopupNotificationManager()
 const { formatMessage } = useVIntl()
 
+const showCreationModal = inject<() => void>('showCreationModal')
+
 const router = useRouter()
 
 const showInstances = ref(false)
@@ -169,6 +181,10 @@ interface RunningProcess {
 }
 
 const messages = defineMessages({
+	createNewInstance: {
+		id: 'app.action-bar.create-new-instance',
+		defaultMessage: 'Create new instance',
+	},
 	offline: {
 		id: 'app.action-bar.offline',
 		defaultMessage: 'Offline',
