@@ -133,10 +133,12 @@ jobs:
             ~/.cargo/bin
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Setup rust cache (target)
+      - name: Restore/Cache Rust target (deps only)
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae #v5.0.5
         with:
-          path: target/
+          path: |
+            target/*/deps/
+            target/*/build/
           key: ${{ runner.os }}-${{ runner.arch }}-rust-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-rust-target-
@@ -208,3 +210,12 @@ jobs:
           pnpm turbo run intl:extract --force
           pnpm scripts i18n-icu-contract prune-local --check
           git diff --exit-code --color */*/src/locales/*/index.json
+
+      - name: Print sccache stats
+        if: always()
+        run: |
+          if command -v sccache > /dev/null 2>&1; then
+            sccache --show-stats
+          else
+            echo "sccache not found"
+          fi
