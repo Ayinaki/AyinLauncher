@@ -77,12 +77,10 @@ jobs:
       # since we don't want warnings to become errors
       # while developing)
       RUSTFLAGS: -Dwarnings
-      # sccache config (only populated for internal branches; secrets aren't
-      # available to forked PRs, and blacksmith stickydisk requires a
-      # blacksmith runner)
+      # sccache config (Note: A remote backend like S3 would improve cross-run cache hits if secrets are added later)
       SCCACHE_DIR: ${{ needs.skip-if-clean.outputs.internal == 'true' && '/mnt/sccache' || '' }}
       SCCACHE_CACHE_SIZE: ${{ needs.skip-if-clean.outputs.internal == 'true' && '10G' || '' }}
-      RUSTC_WRAPPER: ${{ needs.skip-if-clean.outputs.internal == 'true' && 'sccache' || '' }}
+      RUSTC_WRAPPER: sccache
 
     steps:
       - name: Check out code
@@ -135,6 +133,14 @@ jobs:
             ~/.cargo/bin
           key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Setup rust cache (target)
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae #v5.0.5
+        with:
+          path: target/
+          key: ${{ runner.os }}-${{ runner.arch }}-rust-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-rust-target-
+
       - name: Mount sccache disk cache
         if: needs.skip-if-clean.outputs.internal == 'true'
         uses: useblacksmith/stickydisk@13af8883542ca949a717e70fef89d15edbb29d88 # v1.2.0
@@ -143,7 +149,6 @@ jobs:
           path: /mnt/sccache
 
       - name: Setup sccache
-        if: needs.skip-if-clean.outputs.internal == 'true'
         uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
 
       - name: Setup binstall
