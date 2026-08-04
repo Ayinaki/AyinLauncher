@@ -12,13 +12,16 @@ import { trackEvent } from '@/helpers/analytics'
 import { get_project, get_search_results, get_version_many } from '@/helpers/cache.js'
 import { cf_install_progress_listener, instance_listener, process_listener } from '@/helpers/events'
 import {
+	type BlockedModScanResult,
 	check_curseforge_pack_update,
+	type CurseForgeBlockedMod,
+	type CurseForgeCatalogPack,
+	get_curseforge_catalog,
 	install_curseforge_catalog_pack,
 	scan_downloads_for_blocked_mods,
-	type BlockedModScanResult,
-	type CurseForgeBlockedMod,
 } from '@/helpers/install'
 import { list, run, update_managed_modrinth_version } from '@/helpers/instance'
+import type { GameInstance } from '@/helpers/types'
 import { injectContentInstall } from '@/providers/content-install'
 import { useBreadcrumbs } from '@/store/breadcrumbs'
 
@@ -34,7 +37,7 @@ const breadcrumbs = useBreadcrumbs()
 
 breadcrumbs.setRootContext({ name: 'Home', link: route.path })
 
-const recentInstances = ref([])
+const recentInstances = ref<GameInstance[]>([])
 
 const offline = ref(!navigator.onLine)
 window.addEventListener('offline', () => {
@@ -69,6 +72,7 @@ const updating = ref({})
 const hasUpdate = ref({})
 
 const installProgress = ref<Record<string, {
+	phase?: string
 	current: number
 	total: number
 	bytesDownloaded: number
@@ -122,48 +126,12 @@ const getFeaturedModpacks = async () => {
 	await fetchFeaturedProjects()
 	const instances = (await list().catch(handleError)) ?? []
 
-	// 1. CurseForge Dev-Curated Catalog Packs
-	const cfModpacks = await Promise.all(
-		curseforgePacks.map(async (pack) => {
-			const packId = `cf-${pack.projectId}`
-			const instance = instances.find(
-				(p: any) =>
-					p.link?.curseforge_project_id === pack.projectId ||
-					p.link?.project_id === String(pack.projectId) ||
-					p.name === pack.name,
-			)
-			// The instance appears in the list the moment it is created on disk —
-			// long before downloads, blocked-mod detection, and the
-			// Minecraft/loader install finish. Gate "installed" on the exact
-			// same `install_stage` signal the sidebar spinner uses, so the
-			// button only shows "Play" once the install is genuinely complete
-			// (an install in flight is shown via live installProgress events,
-			// not by instance existence — see isInstallInProgress).
-			const isInstalled = !!instance && instance.install_stage === 'installed'
-			installed.value[packId] = isInstalled
+	// Kick off the live CurseForge catalog fetch now so it runs in parallel
+	// with the Modrinth queries below — a slow catalog must never stall the
+	// rest of the page.
+	const liveCatalogPromise = get_curseforge_catalog().catch(() => null)
 
-			if (isInstalled && instance?.id) {
-				const hasUpd = await check_curseforge_pack_update(instance.id).catch(() => false)
-				hasUpdate.value[packId] = hasUpd
-			} else {
-				hasUpdate.value[packId] = false
-			}
-
-			return {
-				project_id: packId,
-				projectId: pack.projectId,
-				title: pack.name,
-				author: 'CurseForge',
-				description: pack.description,
-				icon_url: pack.iconUrl,
-				gameVersion: pack.gameVersion,
-				loader: pack.loader,
-				source: 'curseforge',
-			}
-		}),
-	)
-
-	// 2. Modrinth Featured Packs
+	// 1. Modrinth Featured Packs
 	const filters = []
 	filters.push(['project_type:modpack'])
 
@@ -221,6 +189,51 @@ const getFeaturedModpacks = async () => {
 		})
 	}
 
+	// 2. CurseForge Dev-Curated Catalog Packs. The catalog is fetched live
+	// from the repo so packs can be added/removed without an app update;
+	// fall back to the bundled snapshot when the remote fetch fails (e.g.
+	// offline, or the file hasn't been pushed yet).
+	const liveCurseforgePacks: CurseForgeCatalogPack[] =
+		(await liveCatalogPromise) ?? (curseforgePacks as CurseForgeCatalogPack[])
+	const cfModpacks = await Promise.all(
+		liveCurseforgePacks.map(async (pack) => {
+			const packId = `cf-${pack.projectId}`
+			const instance = instances.find(
+				(p) =>
+					p.link?.project_id === String(pack.projectId) ||
+					p.name === pack.name,
+			)
+			// The instance appears in the list the moment it is created on disk —
+			// long before downloads, blocked-mod detection, and the
+			// Minecraft/loader install finish. Gate "installed" on the exact
+			// same `install_stage` signal the sidebar spinner uses, so the
+			// button only shows "Play" once the install is genuinely complete
+			// (an install in flight is shown via live installProgress events,
+			// not by instance existence — see isInstallInProgress).
+			const isInstalled = !!instance && instance.install_stage === 'installed'
+			installed.value[packId] = isInstalled
+
+			if (isInstalled && instance?.id) {
+				const hasUpd = await check_curseforge_pack_update(instance.id).catch(() => false)
+				hasUpdate.value[packId] = hasUpd
+			} else {
+				hasUpdate.value[packId] = false
+			}
+
+			return {
+				project_id: packId,
+				projectId: pack.projectId,
+				title: pack.name,
+				author: 'CurseForge',
+				description: pack.description,
+				icon_url: pack.iconUrl,
+				gameVersion: pack.gameVersion,
+				loader: pack.loader,
+				source: 'curseforge',
+			}
+		}),
+	)
+
 	featuredModpacks.value = [...cfModpacks, ...mrModpacks]
 
 	if (!selectedModpackId.value && featuredModpacks.value.length > 0) {
@@ -241,7 +254,7 @@ const selectedModpackHasUpdate = computed(() => {
 // True while a pack install is genuinely in flight — either an install()
 // call initiated on this page, or live cf_install_progress events still
 // flowing. Live progress presence keeps the button in its in-progress state
-// across page re-mounts mid-install; its deletion on completion (or failure)
+// across page re-mounts mid-install; clearing it on completion (or failure)
 // guarantees the button can never get stuck permanently disabled.
 const isInstallInProgress = (projectId: string): boolean =>
 	!!installing.value[projectId] || !!installProgress.value[projectId]
@@ -264,7 +277,7 @@ const install = async (projectId: string) => {
 			installing.value[projectId] = false
 			// Close the install modal on completion
 			closeInstallModal()
-			delete installProgress.value[projectId]
+			installProgress.value[projectId] = undefined
 			installed.value[projectId] = true
 			hasUpdate.value[projectId] = false
 			await getInstances()
@@ -283,12 +296,12 @@ const install = async (projectId: string) => {
 			// Close the install modal on completion
 			closeInstallModal()
 			// Clear any stale progress for the Modrinth path
-			delete installProgress.value[projectId]
+			installProgress.value[projectId] = undefined
 		}
 	} catch (error) {
 		closeInstallModal()
 		installing.value[projectId] = false
-		delete installProgress.value[projectId]
+		installProgress.value[projectId] = undefined
 		handleError(error)
 	}
 }
@@ -302,8 +315,7 @@ const updateModpack = async (projectId: string) => {
 			if (pack?.source === 'curseforge') {
 				const instances = (await list().catch(handleError)) ?? []
 				const instance = instances.find(
-					(i: any) =>
-						i.link?.curseforge_project_id === pack.projectId ||
+					(i) =>
 						i.link?.project_id === String(pack.projectId) ||
 						i.name === pack.title,
 				)
@@ -346,7 +358,7 @@ const updateModpack = async (projectId: string) => {
 			handleError(error)
 		} finally {
 			updating.value[projectId] = false
-			delete installProgress.value[projectId]
+			installProgress.value[projectId] = undefined
 		}
 	}
 }
@@ -360,8 +372,7 @@ const unlistenProcess = await process_listener((e) => {
 	if (instance) {
 		const pack = featuredModpacks.value.find((m) =>
 			m.source === 'curseforge'
-				? instance.link?.curseforge_project_id === m.projectId ||
-				  instance.link?.project_id === String(m.projectId) ||
+				? instance.link?.project_id === String(m.projectId) ||
 				  instance.name === m.title
 				: instance.link?.project_id === m.project_id,
 		)
@@ -374,10 +385,9 @@ const unlistenProcess = await process_listener((e) => {
 const play = async (projectId: string) => {
 	const pack = featuredModpacks.value.find((m) => m.project_id === projectId)
 	const instances = (await list().catch(handleError)) ?? []
-	const instance = instances.find((p: any) =>
+	const instance = instances.find((p) =>
 		pack?.source === 'curseforge'
-			? p.link?.curseforge_project_id === pack.projectId ||
-			  p.link?.project_id === String(pack.projectId) ||
+			? p.link?.project_id === String(pack.projectId) ||
 			  p.name === pack.title
 			: p.link?.project_id === projectId,
 	)
@@ -416,7 +426,7 @@ Promise.all([
 	isLoading.value = false
 })
 
-const unlistenInstance = await instance_listener(async (e: any) => {
+const unlistenInstance = await instance_listener(async (e: { instance_id: string; event: string }) => {
 	if (
 			e?.event === 'added' ||
 			e?.event === 'created' ||
@@ -429,8 +439,27 @@ const unlistenInstance = await instance_listener(async (e: any) => {
 	}
 })
 
-// Track previous bytes and timestamp per project for download-speed calculation.
-const prevBytes = ref<Record<string, { bytes: number; time: number }>>({})
+// Rolling sample history per project for throughput computation. Progress
+// events arrive per-file completion (with up to 12 concurrent downloads), so
+// consecutive events can be only milliseconds apart — the old
+// last-two-events delta produced nonsense "speed" values. Instead keep the
+// most recent ~2s of (bytes, time) samples and average the rate across the
+// whole window, which converges to the true aggregate download throughput.
+const SPEED_WINDOW_MS = 2000
+const speedSamples = ref<Record<string, Array<{ bytes: number; time: number }>>>({})
+
+const recordSpeedSample = (key: string, bytes: number) => {
+	const now = Date.now()
+	const samples = speedSamples.value[key] ?? []
+	samples.push({ bytes, time: now })
+	// Prune samples older than the window, always keeping the newest sample
+	// as the window's leading edge.
+	const cutoff = now - SPEED_WINDOW_MS
+	while (samples.length > 1 && samples[0].time < cutoff) {
+		samples.shift()
+	}
+	speedSamples.value[key] = samples
+}
 
 // Install progress modal state
 const installModalVisible = ref(false)
@@ -481,18 +510,49 @@ const installModalStatusText = computed(() => {
 	return msg + suffix
 })
 
-const unlistenCfProgress = await cf_install_progress_listener((payload: any) => {
+// Subtitle for the install modal, mapped from the live phase payload so it
+// tracks the actual install stage instead of always claiming "Downloading mods".
+const installModalPhaseText = computed(() => {
+	switch (installModalProgress.value?.phase) {
+		case 'fetching_pack':
+			return 'Fetching modpack info…'
+		case 'downloading_mods':
+			return 'Downloading mods'
+		case 'installing_minecraft':
+			return 'Installing Minecraft and loader'
+		case 'finished':
+			return 'Finishing…'
+		default:
+			return 'Installing…'
+	}
+})
+
+// Payload of the backend `cf_install_progress` event.
+interface CfInstallProgressPayload {
+	projectId: number
+	phase: string
+	current: number
+	total: number
+	bytesDownloaded: number
+	totalBytes: number
+	message: string | null
+}
+
+const unlistenCfProgress = await cf_install_progress_listener((payload: CfInstallProgressPayload) => {
 	const key = `cf-${payload.projectId}`
 	installProgress.value[key] = {
+		phase: payload.phase,
 		current: payload.current,
 		total: payload.total,
 		bytesDownloaded: payload.bytesDownloaded ?? 0,
 		totalBytes: payload.totalBytes ?? 0,
 		message: payload.message ?? undefined,
 	}
-	// Record byte sample for speed computation
-	if (payload.bytesDownloaded != null) {
-		prevBytes.value[key] = { bytes: payload.bytesDownloaded, time: Date.now() }
+	// Record a byte sample for throughput computation. Zero-byte samples
+	// (e.g. the initial fetching_pack event) are skipped so the first speed
+	// reading isn't diluted by setup overhead.
+	if (payload.bytesDownloaded > 0) {
+		recordSpeedSample(key, payload.bytesDownloaded)
 	}
 })
 
@@ -643,42 +703,26 @@ const formatBytes = (bytes: number): string => {
 	return `${val < 10 ? val.toFixed(1) : val.toFixed(0)} ${units[i]}`
 }
 
-// Computes current download speed as a human-readable string (e.g. "24.5 MB/s")
-// based on the bytes_downloaded delta over the last second.
+// Computes the current download speed as a human-readable string (e.g.
+// "24.5 MB/s") by averaging the bytes downloaded across the last ~2s of
+// samples — this reflects the true aggregate throughput even though events
+// arrive per-file from 12 concurrent downloads. Only meaningful while files
+// are actively downloading.
 const downloadSpeed = (projectId: string): string => {
-	const prev = prevBytes.value[projectId]
-	if (!prev) return ''
 	const progress = installProgress.value[projectId]
-	if (!progress || progress.bytesDownloaded <= 0) return ''
-	const elapsed = (Date.now() - prev.time) / 1000
+	if (!progress || progress.phase !== 'downloading_mods') return ''
+	const samples = speedSamples.value[projectId]
+	if (!samples || samples.length < 2) return ''
+	const first = samples[0]
+	const last = samples[samples.length - 1]
+	const elapsed = (last.time - first.time) / 1000
 	if (elapsed <= 0) return ''
-	// Use the cumulative delta between the last two events
-	// Emitted per file, so the delta is the just-downloaded file's bytes
-	// divided by the elapsed time since the previous event.
-	const delta = progress.bytesDownloaded - prev.bytes
-	if (delta <= 0) return ''
-	const bps = delta / elapsed
+	const bytes = last.bytes - first.bytes
+	if (bytes <= 0) return ''
+	const bps = bytes / elapsed
 	return `${formatBytes(Math.round(bps))}/s`
 }
 
-// Combines the file-count progress, byte throughput, and total amount into
-// a single status string displayed below the progress bar, like:
-// "Downloaded 142 MB / 1.2 GB — 24.5 MB/s"
-const progressStatusText = (projectId: string): string => {
-	const progress = installProgress.value[projectId]
-	if (!progress) return ''
-	const msg = progress.message ?? ''
-	const parts: string[] = []
-	if (progress.totalBytes > 0 && progress.bytesDownloaded > 0) {
-		parts.push(`${formatBytes(progress.bytesDownloaded)} / ${formatBytes(progress.totalBytes)}`)
-	}
-	const speed = downloadSpeed(projectId)
-	if (speed) {
-		parts.push(speed)
-	}
-	const suffix = parts.length > 0 ? ` — ${parts.join(' · ')}` : ''
-	return msg + suffix
-}
 
 // Human-readable badge label per scan status.
 const scanStatusLabel = (entry: ScanStatusEntry) => {
@@ -873,7 +917,8 @@ const handleModpackSelection = (projectId) => {
 										type="transparent"
 										class="!h-[64px] !w-[300px] !min-w-[300px]"
 									>
-										<button												v-tooltip="
+										<button
+v-tooltip="
 													installed[selectedModpack.project_id]
 														? 'This project is already installed'
 														: null
@@ -934,7 +979,7 @@ const handleModpackSelection = (projectId) => {
 								{{ installModalPack?.title ?? 'Installing' }}
 							</h2>
 							<p class="text-sm text-gray-400 m-0 mt-0.5">
-								{{ installModalProgress?.phase === 'fetching_pack' ? 'Fetching modpack info…' : 'Downloading mods' }}
+								{{ installModalPhaseText }}
 							</p>
 						</div>
 						<SpinnerIcon class="animate-spin w-6 h-6 shrink-0 ml-auto text-[--color-brand]" />

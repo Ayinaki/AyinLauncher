@@ -1,6 +1,6 @@
 use crate::api::Result;
 use theseus::pack::curseforge_pack::{
-    self, BlockedMod, BlockedModScanResult, CfInstallProgress, CfPackFilesResult,
+    self, BlockedMod, BlockedModScanResult, CfPackFilesResult, CurseForgeCatalogPack,
     CurseForgeImportResult,
 };
 
@@ -12,16 +12,14 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             get_curseforge_pack_files,
             change_curseforge_pack_version,
             scan_downloads_for_blocked_mods,
-            get_curseforge_install_progress,
+            get_curseforge_catalog,
         ])
         .build()
 }
 
 #[tauri::command]
-pub async fn get_curseforge_install_progress(
-    project_id: u32,
-) -> Option<CfInstallProgress> {
-    curseforge_pack::get_cf_install_progress(project_id)
+pub async fn get_curseforge_catalog() -> Result<Option<Vec<CurseForgeCatalogPack>>> {
+    Ok(curseforge_pack::get_curseforge_catalog().await)
 }
 
 #[tauri::command]

@@ -30,10 +30,10 @@ chrono = { workspace = true, features = ["serde"] }
 daedalus = { workspace = true }
 dashmap = { workspace = true, features = ["serde"] }
 data-url = { workspace = true }
-dotenvy = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 dirs = { workspace = true }
 discord-rich-presence = { workspace = true }
+dotenvy = { workspace = true }
 dunce = { workspace = true }
 either = { workspace = true }
 encoding_rs = { workspace = true }
@@ -119,7 +119,7 @@ dunce = { workspace = true }
 [target.'cfg(target_os = "macos")'.dependencies]
 cidre = { workspace = true, features = ["blocks", "nw"] }
 
-[target.'cfg(windows)'.dependencies]
+[target."cfg(windows)".dependencies]
 windows = { workspace = true, features = ["Networking_Connectivity"] }
 windows-core = { workspace = true }
 winreg = { workspace = true }

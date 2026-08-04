@@ -296,6 +296,22 @@ export interface CurseForgeImportResult {
 	blockedMods: CurseForgeBlockedMod[]
 }
 
+export interface CurseForgeCatalogPack {
+	name: string
+	projectId: number
+	description?: string | null
+	iconUrl?: string | null
+	gameVersion?: string | null
+	loader?: string | null
+}
+
+// Fetches the dev-curated CurseForge catalog live from the repo (cached
+// backend-side for a few minutes), so packs can be added/removed without an
+// app update. Returns null when the remote fetch fails.
+export async function get_curseforge_catalog() {
+	return await invoke<CurseForgeCatalogPack[] | null>('plugin:import-cf|get_curseforge_catalog')
+}
+
 export async function install_curseforge_catalog_pack(
 	projectId: number,
 	gameVersion?: string,
@@ -354,20 +370,4 @@ export async function scan_downloads_for_blocked_mods(
 	})
 }
 
-export interface CfInstallProgress {
-	projectId: number
-	phase: string
-	current: number
-	total: number
-	bytesDownloaded: number
-	totalBytes: number
-	message: string | null
-}
-
-export async function get_curseforge_install_progress(projectId: number) {
-	return await invoke<CfInstallProgress | null>(
-		'plugin:import-cf|get_curseforge_install_progress',
-		{ projectId },
-	)
-}
 

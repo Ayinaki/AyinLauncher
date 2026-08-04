@@ -31,7 +31,7 @@ watch(
 	},
 )
 
-const unlistenInstance = await instance_listener(async (e: any) => {
+const unlistenInstance = await instance_listener(async (e: { instance_id: string; event: string }) => {
 	if (e?.event === 'added' || e?.event === 'created' || e?.event === 'removed' || e?.event === 'synced') {
 		instances.value = await list().catch(handleError)
 	}

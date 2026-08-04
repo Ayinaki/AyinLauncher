@@ -1,25 +1,17 @@
 [
 	{
-		"name": "All the Mods 10",
-		"projectId": 925200,
-		"description": "The official All the Mods 10 modpack for Minecraft 1.21 NeoForge.",
-		"iconUrl": "https://media.forgecdn.net/avatars/1182/438/638755918649288941.png",
-		"gameVersion": "1.21.1",
+		"name": "All the Mods 11 - ATM11",
+		"projectId": 1148445,
+		"description": "The official All the Mods 11 modpack for Minecraft 26.1 NeoForge. Early alpha — expect frequent updates.",
+		"iconUrl": "https://media.forgecdn.net/avatars/thumbnails/1757/481/256/256/639118126616359223.png",
+		"gameVersion": "26.1.2",
 		"loader": "neoforge"
 	},
 	{
-		"name": "RLCraft",
-		"projectId": 285109,
-		"description": "Realism & Hardcore Modpack for Minecraft 1.12.2.",
-		"iconUrl": "https://media.forgecdn.net/avatars/468/243/637751369169569212.png",
-		"gameVersion": "1.12.2",
-		"loader": "forge"
-	},
-	{
-		"name": "Better MC [FORGE]",
-		"projectId": 876781,
-		"description": "Minecraft 1.20.1 Modpack improving the default Vanilla experience.",
-		"iconUrl": "https://media.forgecdn.net/avatars/1095/963/638641361377079410.png",
+		"name": "Beyond Depth",
+		"projectId": 1134605,
+		"description": "Challenging exploration modpack with new dimensions, tough bosses, enhanced combat, and endless exploration.",
+		"iconUrl": "https://media.forgecdn.net/avatars/1750/700/639114276202065882.webp",
 		"gameVersion": "1.20.1",
 		"loader": "forge"
 	}

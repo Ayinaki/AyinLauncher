@@ -72,6 +72,7 @@ fn main() {
                         "get_curseforge_pack_files",
                         "change_curseforge_pack_version",
                         "scan_downloads_for_blocked_mods",
+                        "get_curseforge_catalog",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

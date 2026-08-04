@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 use futures::stream::{self, StreamExt};
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
 use serde::{Deserialize, Serialize};
@@ -13,6 +15,31 @@ use crate::util::fetch::REQWEST_CLIENT;
 const CURSEFORGE_MOD_URL: &str = "https://api.curseforge.com/v1/mods";
 const CURSEFORGE_FILES_URL: &str = "https://api.curseforge.com/v1/mods/files";
 const MODRINTH_VERSION_FILES_URL: &str = "https://api.modrinth.com/v2/version_files";
+
+/// Dev-curated CurseForge catalog pack, as listed in the repo's
+/// `curseforge-packs.json`. The launcher fetches this file live so packs can
+/// be added or removed by editing the repo — no app update required.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CurseForgeCatalogPack {
+    pub name: String,
+    pub project_id: u32,
+    pub description: Option<String>,
+    pub icon_url: Option<String>,
+    pub game_version: Option<String>,
+    pub loader: Option<String>,
+}
+
+/// Raw URL of the catalog JSON in this repository. Edit the file, commit and
+/// push to add/remove packs — the launcher picks it up on the next fetch.
+const CURSEFORGE_CATALOG_URL: &str =
+    "https://raw.githubusercontent.com/Ayinaki/AyinLauncher/main/apps/app-frontend/src/assets/curseforge-packs.json";
+
+/// How long a fetched catalog is reused before refetching. Matches the
+/// GitHub raw CDN's own max-age, so a shorter TTL wouldn't see updates sooner.
+const CATALOG_CACHE_TTL: Duration = Duration::from_secs(5 * 60);
+
+static CATALOG_CACHE: Mutex<Option<(Instant, Vec<CurseForgeCatalogPack>)>> = Mutex::new(None);
 
 /// Resolves the CurseForge API key at runtime.
 ///
@@ -95,6 +122,54 @@ fn non_empty_env_var(key: &str) -> Option<String> {
     }
 }
 
+/// Fetches the live CurseForge catalog (cached for `CATALOG_CACHE_TTL`).
+/// Returns `None` when the remote catalog is unreachable or malformed, so the
+/// caller can fall back to its bundled copy. Best-effort: a catalog failure
+/// must never break the Home page.
+pub async fn get_curseforge_catalog() -> Option<Vec<CurseForgeCatalogPack>> {
+    // Serve from cache while it's fresh.
+    if let Ok(guard) = CATALOG_CACHE.lock()
+        && let Some((fetched_at, packs)) = guard.as_ref()
+        && fetched_at.elapsed() < CATALOG_CACHE_TTL
+    {
+        return Some(packs.clone());
+    }
+
+    let res = REQWEST_CLIENT
+        .get(CURSEFORGE_CATALOG_URL)
+        // GitHub's raw CDN is fast; keep the cap short so a hung catalog
+        // fetch never stalls the Home page.
+        .timeout(Duration::from_secs(4))
+        .header(USER_AGENT, launcher_user_agent())
+        .send()
+        .await;
+
+    let packs = match res {
+        Ok(res) if res.status().is_success() => {
+            match res.json::<Vec<CurseForgeCatalogPack>>().await {
+                Ok(packs) => packs,
+                Err(e) => {
+                    tracing::warn!("Failed to parse CurseForge catalog: {e}");
+                    return None;
+                }
+            }
+        }
+        Ok(res) => {
+            tracing::warn!("CurseForge catalog returned status {}", res.status());
+            return None;
+        }
+        Err(e) => {
+            tracing::warn!("Failed to fetch CurseForge catalog: {e}");
+            return None;
+        }
+    };
+
+    if let Ok(mut guard) = CATALOG_CACHE.lock() {
+        *guard = Some((Instant::now(), packs.clone()));
+    }
+    Some(packs)
+}
+
 /// Builds the shared request headers for CurseForge API calls.
 fn cf_headers() -> crate::Result<HeaderMap> {
     let mut req_headers = HeaderMap::new();
@@ -131,11 +206,7 @@ pub struct CfInstallProgress {
     pub message: Option<String>,
 }
 
-/// Emits a `cf_install_progress` event to the Tauri frontend AND stores the
-/// latest payload in the shared progress map so the frontend can poll it via
-/// the `get_curseforge_install_progress` command (a fallback for when Tauri
-/// events emitted during a command invocation are not flushed until the
-/// command returns).
+/// Emits a `cf_install_progress` event to the Tauri frontend.
 ///
 /// Best-effort: a progress-notification failure must never abort a pack
 /// install, so failures are logged and swallowed.
@@ -145,7 +216,6 @@ pub async fn emit_cf_install_progress(payload: CfInstallProgress) {
         use tauri::Emitter;
         match crate::EventState::get() {
             Ok(event_state) => {
-                event_state.cf_install_progress.insert(payload.project_id, payload.clone());
                 if let Err(e) = event_state.app.emit("cf_install_progress", &payload) {
                     tracing::warn!("Failed to emit cf_install_progress event: {e}");
                 }
@@ -161,17 +231,6 @@ pub async fn emit_cf_install_progress(payload: CfInstallProgress) {
     {
         let _ = payload;
     }
-}
-
-/// Returns the latest progress payload for a CurseForge install, if any.
-pub fn get_cf_install_progress(project_id: u32) -> Option<CfInstallProgress> {
-    #[cfg(feature = "tauri")]
-    {
-        if let Ok(event_state) = crate::EventState::get() {
-            return event_state.cf_install_progress.get(&project_id).map(|v| v.clone());
-        }
-    }
-    None
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -968,7 +1027,6 @@ pub async fn install_curseforge_catalog_pack(
 
     // Determine the instance to install into: reuse an existing one when
     // updating, otherwise create a fresh instance.
-    let _state = State::get().await?;
     let (instance_id, instance_dir, _is_update) = if let Some(existing_id) = instance_id {
         // Verify the existing instance is still around before reusing it.
         crate::api::instance::get(&existing_id).await?.ok_or_else(|| {
@@ -2286,7 +2344,7 @@ mod tests {
                 file_date: Some("2025-01-01T00:00:00Z".to_string()),
                 release_type: Some(1),
             },
-            // Unparseable date sorts last within the same tier.
+            // Unparsable date sorts last within the same tier.
             CfFile {
                 id: 300,
                 mod_id: 1,

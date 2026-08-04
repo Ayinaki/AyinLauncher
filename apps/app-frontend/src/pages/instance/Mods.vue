@@ -109,10 +109,10 @@ import {
 } from '@/helpers/events.js'
 import {
 	change_curseforge_pack_version,
+	type CurseForgePackFileInfo,
 	get_curseforge_pack_files,
 	install_duplicate_instance,
 	installJobInstanceId,
-	type CurseForgePackFileInfo,
 } from '@/helpers/install'
 import {
 	add_project_from_path,
