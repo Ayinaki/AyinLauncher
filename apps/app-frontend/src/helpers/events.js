@@ -85,6 +85,22 @@ export async function install_job_listener(callback) {
 	return await listen('install_job', (event) => callback(event.payload))
 }
 
+/// Payload for the 'cf_install_progress' event
+/*
+    CfInstallProgress {
+        projectId: number
+        phase: string ("fetching_pack" | "downloading_mods" | "installing_minecraft" | "finished")
+        current: number
+        total: number
+        bytesDownloaded: number
+        totalBytes: number
+        message: string | null
+    }
+*/
+export async function cf_install_progress_listener(callback) {
+	return await listen('cf_install_progress', (event) => callback(event.payload))
+}
+
 /// Payload for the 'command' event
 /*
   CommandPayload {

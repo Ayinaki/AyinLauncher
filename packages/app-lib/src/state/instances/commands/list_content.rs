@@ -341,10 +341,19 @@ pub(crate) async fn get_linked_modpack_info(
         &state.pool,
     )
     .await?;
-    let Some((project_id, version_id)) =
-        linked_modpack_ids_for_instance(&resolved.instance.id, &state.pool)
-            .await?
-    else {
+    let link = sqlite::instance_rows::get_instance_link(
+        &resolved.instance.id,
+        &state.pool,
+    )
+    .await?;
+    // ImportedModpack links (CurseForge catalog packs, local imports) have no
+    // resolvable Modrinth project/version — the version may not even be fully
+    // installed yet. Show no modpack info instead of surfacing a "Linked
+    // modpack version ... not found" error to the user mid-install.
+    if matches!(link, InstanceLink::ImportedModpack { .. }) {
+        return Ok(None);
+    }
+    let Some((project_id, version_id)) = linked_modpack_ids(&link) else {
         return Ok(None);
     };
     let (project, version, all_versions) = tokio::try_join!(
@@ -1062,15 +1071,6 @@ fn file_metadata_from_entry_or_cache(
 
 fn is_imported_modpack_scope(link: &InstanceLink) -> bool {
     matches!(link, InstanceLink::ImportedModpack { .. })
-}
-
-async fn linked_modpack_ids_for_instance(
-    instance_id: &str,
-    pool: &SqlitePool,
-) -> crate::Result<Option<(String, String)>> {
-    let link =
-        sqlite::instance_rows::get_instance_link(instance_id, pool).await?;
-    Ok(linked_modpack_ids(&link))
 }
 
 fn linked_modpack_ids(link: &InstanceLink) -> Option<(String, String)> {

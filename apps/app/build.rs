@@ -64,6 +64,20 @@ fn main() {
                     ),
             )
             .plugin(
+                "import-cf",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "install_curseforge_catalog_pack",
+                        "check_curseforge_pack_update",
+                        "get_curseforge_pack_files",
+                        "change_curseforge_pack_version",
+                        "scan_downloads_for_blocked_mods",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
                 "jre",
                 InlinedPlugin::new()
                     .commands(&[
@@ -328,18 +342,6 @@ fn main() {
                         "get_server_status",
                         "start_join_singleplayer_world",
                         "start_join_server",
-                    ])
-                    .default_permission(
-                        DefaultPermissionRule::AllowAllCommands,
-                    ),
-            )
-            .plugin(
-                "import-cf",
-                InlinedPlugin::new()
-                    .commands(&[
-                        "import_curseforge_modpack",
-                        "scan_folder_for_mods",
-                        "open_cf_urls",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

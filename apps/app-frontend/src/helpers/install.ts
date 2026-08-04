@@ -267,14 +267,107 @@ export async function wait_for_install_job(jobId: string) {
 			.catch(rejectWait)
 	})
 }
-export async function install_import_curseforge_modpack(zipPath: string): Promise<{ stagingDir: string, blockedMods: any[], name: string, gameVersion: string, loader: string, loaderVersion: string }> {
-	return await invoke('plugin:import-cf|import_curseforge_modpack', { zipPath })
+
+export interface CurseForgeBlockedMod {
+	name: string
+	websiteUrl: string
+	hash: string
+	projectId: number
+	fileId: number
+	fileName: string
+	/** Content class: 12 = resource pack, 6552 = shader pack, 6 = mod. */
+	classId: number | null
 }
 
-export async function install_open_cf_urls(urls: string[]): Promise<void> {
-	return await invoke('plugin:import-cf|open_cf_urls', { urls })
+export interface BlockedModScanItem {
+	fileId: number
+	status: 'moved' | 'not_found' | 'conflict'
+	destination: 'mods' | 'resourcepacks' | 'shaderpacks' | null
 }
 
-export async function install_scan_folder_for_mods(stagingDir: string, folderPath: string | null, expected: any[]): Promise<string[]> {
-	return await invoke('plugin:import-cf|scan_folder_for_mods', { stagingDir, folderPath, expected })
+export interface BlockedModScanResult {
+	moved: number
+	remaining: CurseForgeBlockedMod[]
+	items: BlockedModScanItem[]
 }
+
+export interface CurseForgeImportResult {
+	instanceId: string
+	blockedMods: CurseForgeBlockedMod[]
+}
+
+export async function install_curseforge_catalog_pack(
+	projectId: number,
+	gameVersion?: string,
+	instanceId?: string,
+	fileId?: number,
+) {
+	return await invoke<CurseForgeImportResult>('plugin:import-cf|install_curseforge_catalog_pack', {
+		projectId,
+		gameVersion,
+		instanceId,
+		fileId,
+	})
+}
+
+export async function check_curseforge_pack_update(instanceId: string) {
+	return await invoke<boolean>('plugin:import-cf|check_curseforge_pack_update', {
+		instanceId,
+	})
+}
+
+export interface CurseForgePackFileInfo {
+	fileId: number
+	fileName: string
+	releaseType: number | null
+	fileDate: string | null
+	gameVersions: string[] | null
+	downloadUrl: string | null
+}
+
+export interface CurseForgePackFilesResult {
+	projectId: number
+	latestFileId: number
+	files: CurseForgePackFileInfo[]
+}
+
+export async function get_curseforge_pack_files(instanceId: string) {
+	return await invoke<CurseForgePackFilesResult>('plugin:import-cf|get_curseforge_pack_files', {
+		instanceId,
+	})
+}
+
+export async function change_curseforge_pack_version(instanceId: string, fileId: number) {
+	return await invoke<CurseForgeImportResult>('plugin:import-cf|change_curseforge_pack_version', {
+		instanceId,
+		fileId,
+	})
+}
+
+export async function scan_downloads_for_blocked_mods(
+	instanceId: string,
+	blockedMods: CurseForgeBlockedMod[],
+) {
+	return await invoke<BlockedModScanResult>('plugin:import-cf|scan_downloads_for_blocked_mods', {
+		instanceId,
+		blockedMods,
+	})
+}
+
+export interface CfInstallProgress {
+	projectId: number
+	phase: string
+	current: number
+	total: number
+	bytesDownloaded: number
+	totalBytes: number
+	message: string | null
+}
+
+export async function get_curseforge_install_progress(projectId: number) {
+	return await invoke<CfInstallProgress | null>(
+		'plugin:import-cf|get_curseforge_install_progress',
+		{ projectId },
+	)
+}
+

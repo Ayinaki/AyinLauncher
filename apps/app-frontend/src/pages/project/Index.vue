@@ -17,7 +17,7 @@
 				</Teleport>
 				<ProjectHeader
 					v-else
-					class="bg-[#0a0101] rounded-3xl pt-4 pl-4 pr-10 mb-6"
+					class="bg-[#182143] rounded-3xl pt-4 pl-4 pr-10 mb-6"
 					:project="data"
 					:project-v3="projectV3"
 					:ping="serverPing"
@@ -90,17 +90,19 @@
 					]"
 					class="nav-spacing"
 				/>
-				<RouterView
-					v-if="route.path.startsWith('/project')"
-					:project="data"
-					:versions="versions"
-					:members="members"
-					:instance="instance"
-					:install="install"
-					:installed="installed"
-					:installing="installing"
-					:installed-version="installedVersion"
-				/>
+				<Suspense>
+					<RouterView
+						v-if="route.path.startsWith('/project')"
+						:project="data"
+						:versions="versions"
+						:members="members"
+						:instance="instance"
+						:install="install"
+						:installed="installed"
+						:installing="installing"
+						:installed-version="installedVersion"
+					/>
+				</Suspense>
 			</template>
 			<template v-else> Project data couldn't not be loaded. </template>
 		</div>

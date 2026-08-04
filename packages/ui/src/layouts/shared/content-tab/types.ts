@@ -89,3 +89,15 @@ export type ContentModpackCardVersion = Pick<
 export type ContentModpackCardCategory = Labrinth.Tags.v2.Category & {
 	action?: (event: MouseEvent) => void
 }
+
+/**
+ * A single available file for a CurseForge catalog modpack, as shown in the
+ * inline version dropdown on the Content tab's pack card.
+ */
+export interface ContentModpackVersionOption {
+	fileId: number
+	fileName: string
+	releaseType: number | null
+	fileDate: string | null
+	gameVersions: string[] | null
+}

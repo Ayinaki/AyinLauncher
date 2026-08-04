@@ -169,11 +169,6 @@ export interface CreationFlowContextValue {
 	modpackFile: Ref<File | null>
 	modpackFilePath: Ref<string | null>
 
-	// CurseForge Import state
-	curseforgeBlockedMods: Ref<any[]>
-	curseforgeZipPath: Ref<string | null>
-	curseforgeStagingDir: Ref<string | null>
-
 	// Modpack search state (persisted across stage navigation)
 	modpackSearchProjectId: Ref<string | undefined>
 	modpackSearchVersionId: Ref<string | undefined>
@@ -219,16 +214,6 @@ export interface CreationFlowContextValue {
 	searchModpacks: (query: string, limit?: number) => Promise<ModpackSearchResult>
 	getProjectVersions: (projectId: string) => Promise<{ id: string }[]>
 	getLoaderManifest: LoaderManifestResolver | null
-	scanFolderForMods: (path?: string) => Promise<{ found: number, remaining: any[] }>
-	openCfUrls: (urls: string[]) => Promise<void>
-	importCurseforgeModpack: (path: string) => Promise<{ 
-		stagingDir: string, 
-		blockedMods: any[],
-		name: string,
-		gameVersion: string,
-		loader: string,
-		loaderVersion: string
-	}>
 }
 
 export const [injectCreationFlowContext, provideCreationFlowContext] =
@@ -249,9 +234,6 @@ export interface CreationFlowOptions {
 	searchModpacks?: (query: string, limit?: number) => Promise<ModpackSearchResult>
 	getProjectVersions?: (projectId: string) => Promise<{ id: string }[]>
 	getLoaderManifest?: LoaderManifestResolver
-	scanFolderForMods?: (path?: string) => Promise<{ found: number, remaining: any[] }>
-	openCfUrls?: (urls: string[]) => Promise<void>
-	importCurseforgeModpack?: (path: string) => Promise<{ stagingDir: string, blockedMods: any[], name: string, gameVersion: string, loader: string, loaderVersion: string, iconUrl?: string }>
 	finishDisabled?: ComputedRef<boolean>
 	finishDisabledTooltip?: ComputedRef<string | undefined>
 }
@@ -279,9 +261,6 @@ export function createCreationFlowContext(
 	const searchModpacks = options.searchModpacks!
 	const getProjectVersions = options.getProjectVersions!
 	const getLoaderManifest = options.getLoaderManifest ?? null
-	const scanFolderForMods = options.scanFolderForMods ?? (async () => ({ found: 0, remaining: [] }))
-	const openCfUrls = options.openCfUrls ?? (async () => {})
-	const importCurseforgeModpack = options.importCurseforgeModpack ?? (async () => ({ blockedMods: [] as any[], stagingDir: '', name: '', gameVersion: '', loader: '', loaderVersion: '' }))
 	const finishDisabled = options.finishDisabled ?? computed(() => false)
 	const finishDisabledTooltip = options.finishDisabledTooltip ?? computed(() => undefined)
 
@@ -343,10 +322,6 @@ export function createCreationFlowContext(
 	const modpackSelection = ref<ModpackSelection | null>(null)
 	const modpackFile = ref<File | null>(null)
 	const modpackFilePath = ref<string | null>(null)
-
-	const curseforgeBlockedMods = ref<any[]>([])
-	const curseforgeZipPath = ref<string | null>(null)
-	const curseforgeStagingDir = ref<string | null>(null)
 
 	// Modpack search state (persisted across stage navigation)
 	const modpackSearchProjectId = ref<string | undefined>()
@@ -480,9 +455,6 @@ export function createCreationFlowContext(
 		modpackSelection.value = null
 		modpackFile.value = null
 		modpackFilePath.value = null
-		curseforgeBlockedMods.value = []
-		curseforgeZipPath.value = null
-		curseforgeStagingDir.value = null
 		modpackSearchProjectId.value = undefined
 		modpackSearchVersionId.value = undefined
 		modpackSearchOptions.value = []
@@ -611,9 +583,6 @@ export function createCreationFlowContext(
 		modpackSelection,
 		modpackFile,
 		modpackFilePath,
-		curseforgeBlockedMods,
-		curseforgeZipPath,
-		curseforgeStagingDir,
 		modpackSearchProjectId,
 		modpackSearchVersionId,
 		modpackSearchOptions,
@@ -642,9 +611,6 @@ export function createCreationFlowContext(
 		searchModpacks,
 		getProjectVersions,
 		getLoaderManifest,
-		scanFolderForMods,
-		openCfUrls,
-		importCurseforgeModpack,
 	}
 
 	return contextValue

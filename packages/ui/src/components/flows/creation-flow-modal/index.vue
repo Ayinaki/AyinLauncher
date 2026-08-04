@@ -38,9 +38,6 @@ const props = withDefaults(
 		searchModpacks?: (query: string, limit?: number) => Promise<ModpackSearchResult>
 		getProjectVersions?: (projectId: string) => Promise<{ id: string }[]>
 		getLoaderManifest?: LoaderManifestResolver
-		importCurseforgeModpack?: (path: string) => Promise<any>
-		scanFolderForMods?: (path?: string) => Promise<any>
-		openCfUrls?: (urls: string[]) => Promise<void>
 		finishDisabled?: boolean
 		finishDisabledTooltip?: string
 	}>(),
@@ -83,9 +80,6 @@ const ctx = createCreationFlowContext(
 		searchModpacks: props.searchModpacks,
 		getProjectVersions: props.getProjectVersions,
 		getLoaderManifest: props.getLoaderManifest,
-		importCurseforgeModpack: props.importCurseforgeModpack,
-		scanFolderForMods: props.scanFolderForMods,
-		openCfUrls: props.openCfUrls,
 		finishDisabled: computed(() => props.finishDisabled ?? false),
 		finishDisabledTooltip: computed(() => props.finishDisabledTooltip),
 	},

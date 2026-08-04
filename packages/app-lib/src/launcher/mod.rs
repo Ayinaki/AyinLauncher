@@ -945,6 +945,55 @@ pub async fn launch_minecraft(
     // Java options should be set in instance options (the existence of _JAVA_OPTIONS overwrites them)
     command.env_remove("_JAVA_OPTIONS");
 
+    // On Windows, some mods read user environment variables directly from the
+    // process environment during static initialization (e.g. resourcefullib's
+    // GlobalStorage reads LOCALAPPDATA to build its cache/data paths). If the
+    // launcher process itself was started from a context that didn't set them,
+    // the child JVM inherits the gap and crashes with a NullPointerException.
+    // Defensively guarantee the child always has these variables, deriving any
+    // missing ones from USERPROFILE (or HOMEDRIVE+HOMEPATH) as a fallback.
+    #[cfg(target_os = "windows")]
+    {
+        let userprofile = std::env::var("USERPROFILE")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .or_else(|| {
+                let drive = std::env::var("HOMEDRIVE").ok()?;
+                let path = std::env::var("HOMEPATH").ok()?;
+                if drive.trim().is_empty() || path.trim().is_empty() {
+                    None
+                } else {
+                    Some(format!("{drive}{path}"))
+                }
+            });
+
+        if let Some(userprofile) = &userprofile {
+            command.env("USERPROFILE", userprofile);
+        }
+
+        for (var, subdir) in [("LOCALAPPDATA", "Local"), ("APPDATA", "Roaming")] {
+            match std::env::var(var).ok().filter(|v| !v.trim().is_empty()) {
+                Some(value) => {
+                    command.env(var, value);
+                }
+                None => match &userprofile {
+                    Some(profile) => {
+                        let derived = format!("{profile}\\AppData\\{subdir}");
+                        tracing::warn!(
+                            "{var} is not set in the launcher environment; \
+                             derived \"{derived}\" for the Minecraft child process"
+                        );
+                        command.env(var, derived);
+                    }
+                    None => tracing::warn!(
+                        "{var} is not set in the launcher environment and could not \
+                         be derived (USERPROFILE is also unset)"
+                    ),
+                },
+            }
+        }
+    }
+
     command.envs(env_args);
 
     // Overwrites the minecraft options.txt file with the settings from the profile

@@ -53,6 +53,12 @@
 				},
 				{
 					"url": "https://*.taila228c5.ts.net/*"
+				},
+				{
+					"url": "https://api.curseforge.com/*"
+				},
+				{
+					"url": "https://*.curseforge.com/*"
 				}
 			]
 		},
@@ -94,6 +100,7 @@
 		},
 		"auth:default",
 		"import:default",
+		"import-cf:default",
 		"jre:default",
 		"logs:default",
 		"metadata:default",
@@ -110,7 +117,6 @@
 		"utils:default",
 		"ads:default",
 		"friends:default",
-		"worlds:default",
-		"import-cf:default"
+		"worlds:default"
 	]
 }

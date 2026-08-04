@@ -12,7 +12,7 @@
 				@unlinked="fetchInstance"
 			/>
 			<UpdateToPlayModal ref="updateToPlayModal" :instance="instance" />
-			<ContentPageHeader class="bg-[#0a0101] rounded-3xl pt-4 pr-4 pl-4 mr-2 mb-6">
+			<ContentPageHeader class="bg-[#182143] rounded-3xl pt-4 pr-4 pl-4 mr-2 mb-6">
 				<template #icon>
 					<Avatar
 						:src="icon ? icon : undefined"

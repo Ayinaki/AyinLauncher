@@ -26,8 +26,6 @@ export interface FilePickerProvider {
 	pickFiles?: (options?: { multiple?: boolean }) => Promise<PickedFile[]>
 	/** Pick a .mrpack modpack file */
 	pickModpackFile: (options?: PickModpackFileOptions) => Promise<PickedModpackFile | null>
-	/** Pick a CurseForge .zip modpack file */
-	pickCurseforgeModpackFile?: () => Promise<string | null>
 }
 
 export const [injectFilePicker, provideFilePicker] = createContext<FilePickerProvider>('FilePicker')

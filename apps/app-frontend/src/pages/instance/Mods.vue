@@ -76,6 +76,7 @@ import {
 	type ContentModpackCardCategory,
 	type ContentModpackCardProject,
 	type ContentModpackCardVersion,
+	type ContentModpackVersionOption,
 	type ContentOwner,
 	ContentUpdaterModal,
 	defineMessages,
@@ -106,7 +107,13 @@ import {
 	instance_listener,
 	type InstanceBulkUpdateProgress,
 } from '@/helpers/events.js'
-import { install_duplicate_instance, installJobInstanceId } from '@/helpers/install'
+import {
+	change_curseforge_pack_version,
+	get_curseforge_pack_files,
+	install_duplicate_instance,
+	installJobInstanceId,
+	type CurseForgePackFileInfo,
+} from '@/helpers/install'
 import {
 	add_project_from_path,
 	edit,
@@ -160,6 +167,15 @@ const messages = defineMessages({
 	bulkUpdateFinishing: {
 		id: 'app.instance.mods.bulk-update.finishing',
 		defaultMessage: 'Finishing update...',
+	},
+	cfVersionChanged: {
+		id: 'app.instance.mods.cf-version-changed',
+		defaultMessage: 'Modpack version changed',
+	},
+	cfBlockedModsNotification: {
+		id: 'app.instance.mods.cf-blocked-mods',
+		defaultMessage:
+			'{count} mod(s) disallow automated downloads and were skipped. Install them manually from CurseForge.',
 	},
 })
 
@@ -275,6 +291,103 @@ const isPackLocked = computed(
 	() =>
 		props.instance?.link?.type === 'modrinth_modpack' ||
 		props.instance?.link?.type === 'server_project_modpack',
+)
+
+// CurseForge catalog packs are imported_modpack links whose project/file IDs
+// are numeric CurseForge IDs (real local imports leave them unset).
+const isCurseForgePack = computed(() => {
+	const link = props.instance.link
+	return (
+		link?.type === 'imported_modpack' &&
+		!!link.project_id &&
+		!!link.version_id &&
+		!Number.isNaN(Number(link.project_id)) &&
+		!Number.isNaN(Number(link.version_id))
+	)
+})
+
+const cfModpackVersions = ref<ContentModpackVersionOption[] | null>(null)
+const cfModpackVersionsLoading = ref(false)
+const cfModpackVersionsError = ref<string | null>(null)
+const cfModpackLatestFileId = ref<number | null>(null)
+const cfModpackSwitching = ref(false)
+// Guards against out-of-order responses if version_id changes mid-flight.
+let cfVersionRequestSeq = 0
+
+function mapCfFileToVersionOption(file: CurseForgePackFileInfo): ContentModpackVersionOption {
+	return {
+		fileId: file.fileId,
+		fileName: file.fileName,
+		releaseType: file.releaseType,
+		fileDate: file.fileDate,
+		gameVersions: file.gameVersions,
+	}
+}
+
+async function loadCfModpackVersions() {
+	const requestSeq = ++cfVersionRequestSeq
+
+	if (!isCurseForgePack.value || !props.instance?.id) {
+		cfModpackVersions.value = null
+		cfModpackVersionsError.value = null
+		return
+	}
+
+	cfModpackVersionsLoading.value = true
+	cfModpackVersionsError.value = null
+	try {
+		const result = await get_curseforge_pack_files(props.instance.id)
+		if (requestSeq !== cfVersionRequestSeq) return
+		cfModpackVersions.value = result.files.map(mapCfFileToVersionOption)
+		cfModpackLatestFileId.value = result.latestFileId
+	} catch (err) {
+		if (requestSeq !== cfVersionRequestSeq) return
+		cfModpackVersions.value = null
+		cfModpackVersionsError.value =
+			err instanceof Error ? err.message : 'Failed to load CurseForge pack versions'
+	} finally {
+		if (requestSeq === cfVersionRequestSeq) {
+			cfModpackVersionsLoading.value = false
+		}
+	}
+}
+
+const cfModpackInstalledVersionId = computed(() => {
+	const versionId = props.instance.link?.version_id
+	return versionId != null && versionId !== '' && !Number.isNaN(Number(versionId))
+		? Number(versionId)
+		: null
+})
+
+async function handleChangeCfModpackVersion(fileId: number) {
+	if (cfModpackSwitching.value || fileId === cfModpackInstalledVersionId.value) return
+	cfModpackSwitching.value = true
+	try {
+		const result = await change_curseforge_pack_version(props.instance.id, fileId)
+		if (result.blockedMods.length > 0) {
+			addNotification({
+				type: 'warning',
+				title: formatMessage(messages.cfVersionChanged),
+				text: formatMessage(messages.cfBlockedModsNotification, {
+					count: result.blockedMods.length,
+				}),
+			})
+		}
+		await loadCfModpackVersions()
+		await refreshContentState('must_revalidate')
+	} catch (err) {
+		handleError(err as Error)
+	} finally {
+		cfModpackSwitching.value = false
+	}
+}
+
+watch(
+	() => [isCurseForgePack.value, props.instance?.id, props.instance?.link?.version_id],
+	() => {
+		void loadCfModpackVersions()
+	},
+	{ immediate: true },
 )
 
 const shareModal = ref<InstanceType<typeof ShareModalWrapper> | null>()
@@ -1296,15 +1409,26 @@ provideContentManager({
 				project: localImportedModpackProject.value,
 				categories: [],
 				hasUpdate: false,
-				disabled: isModpackUpdating.value,
-				disabledText: isModpackUpdating.value
-					? formatMessage(commonMessages.updatingLabel)
-					: formatMessage(commonMessages.installingLabel),
+				disabled: isModpackUpdating.value || cfModpackSwitching.value,
+				disabledText: cfModpackSwitching.value
+					? formatMessage(messages.cfVersionChanged)
+					: isModpackUpdating.value
+						? formatMessage(commonMessages.updatingLabel)
+						: formatMessage(commonMessages.installingLabel),
 			}
 		}
 
 		return null
 	}),
+	modpackVersions: computed(() =>
+		isCurseForgePack.value ? cfModpackVersions.value : null,
+	),
+	modpackVersionsLoading: cfModpackVersionsLoading,
+	modpackVersionsError: cfModpackVersionsError,
+	modpackVersionsBusy: cfModpackSwitching,
+	modpackInstalledVersionId: cfModpackInstalledVersionId,
+	modpackLatestVersionId: computed(() => cfModpackLatestFileId.value),
+	changeModpackVersion: handleChangeCfModpackVersion,
 	isPackLocked,
 	isBusy: isInstanceBusy,
 	isBulkOperating,

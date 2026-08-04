@@ -63,6 +63,10 @@ export interface InstallationSettingsContext {
 	/** True when the linked modpack was uploaded as a local file rather than from Modrinth */
 	isLocalFile?: boolean | ComputedRef<boolean>
 
+	/** Hides the "Change version" button only (e.g. CurseForge catalog packs, whose
+	 * version switching lives on the Content tab). Default: false. */
+	hideChangeVersion?: boolean | ComputedRef<boolean>
+
 	repairing?: Ref<boolean>
 	reinstalling?: Ref<boolean>
 

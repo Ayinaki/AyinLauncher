@@ -19,6 +19,7 @@ import { computed, ref } from 'vue'
 import { trackEvent } from '@/helpers/analytics'
 import { get_project_versions, get_version } from '@/helpers/cache'
 import {
+	change_curseforge_pack_version,
 	install_duplicate_instance,
 	install_existing_instance,
 	install_pack_to_existing_instance,
@@ -114,6 +115,18 @@ const isModrinthLinkedModpack = computed(
 		instance.value.link?.type === 'server_project_modpack',
 )
 const isImportedModpack = computed(() => instance.value.link?.type === 'imported_modpack')
+// CurseForge catalog packs are imported_modpack links whose project/file IDs
+// are numeric CurseForge IDs (real local imports leave them unset).
+const isCurseForgePack = computed(() => {
+	const link = instance.value.link
+	return (
+		link?.type === 'imported_modpack' &&
+		!!link.project_id &&
+		!!link.version_id &&
+		!Number.isNaN(Number(link.project_id)) &&
+		!Number.isNaN(Number(link.version_id))
+	)
+})
 
 const modpackInfoQuery = useQuery({
 	queryKey: computed(() => ['linkedModpackInfo', instance.value.id]),
@@ -349,7 +362,15 @@ provideInstallationSettings({
 		reinstalling.value = true
 		let shouldTrack = false
 		try {
-			if (isImportedModpack.value) {
+			if (isCurseForgePack.value && instance.value.link?.version_id) {
+				// Re-download the currently installed CurseForge file rather
+				// than swapping in a local file.
+				await change_curseforge_pack_version(
+					instance.value.id,
+					Number(instance.value.link.version_id),
+				).catch(handleError)
+				shouldTrack = true
+			} else if (isImportedModpack.value) {
 				shouldTrack = await installLocalModpackFromPicker()
 			} else {
 				await update_repair_modrinth(instance.value.id).catch(handleError)
@@ -439,6 +460,7 @@ provideInstallationSettings({
 	showModpackVersionActions: computed(
 		() => isModrinthLinkedModpack.value && !isMinecraftServer.value,
 	),
+	hideChangeVersion: isCurseForgePack,
 	isLocalFile: isImportedModpack,
 	repairing,
 	reinstalling,

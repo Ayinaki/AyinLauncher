@@ -291,7 +291,7 @@ const getIconUrl = (path: string | null | undefined): string | undefined => {
 
 <style lang="scss" scoped>
 .instance-card {
-	background: #0a0101;
+	background: #182143;
 	border-radius: 1rem;
 	border: none;
 	overflow: hidden;

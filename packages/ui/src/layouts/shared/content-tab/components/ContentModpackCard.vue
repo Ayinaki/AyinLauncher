@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import {
 	BoxesIcon,
+	CircleAlertIcon,
 	ClockIcon,
 	DownloadIcon,
+	DropdownIcon,
 	HeartIcon,
 	MoreVerticalIcon,
 	Settings2Icon,
@@ -17,6 +19,7 @@ import AutoLink from '#ui/components/base/AutoLink.vue'
 import Avatar from '#ui/components/base/Avatar.vue'
 import BulletDivider from '#ui/components/base/BulletDivider.vue'
 import ButtonStyled from '#ui/components/base/ButtonStyled.vue'
+import FloatingPanel from '#ui/components/base/FloatingPanel.vue'
 import OverflowMenu, {
 	type Option as OverflowMenuOption,
 } from '#ui/components/base/OverflowMenu.vue'
@@ -30,6 +33,7 @@ import type {
 	ContentModpackCardCategory,
 	ContentModpackCardProject,
 	ContentModpackCardVersion,
+	ContentModpackVersionOption,
 	ContentOwner,
 } from '../types'
 
@@ -48,6 +52,38 @@ const messages = defineMessages({
 		id: 'content.modpack-card.dismiss-hint',
 		defaultMessage: "Don't show again",
 	},
+	versionDropdownLabel: {
+		id: 'content.modpack-card.version-dropdown',
+		defaultMessage: 'Modpack version',
+	},
+	loadingVersions: {
+		id: 'content.modpack-card.loading-versions',
+		defaultMessage: 'Loading versions...',
+	},
+	noVersions: {
+		id: 'content.modpack-card.no-versions',
+		defaultMessage: 'No other versions available',
+	},
+	currentlyInstalled: {
+		id: 'content.modpack-card.currently-installed',
+		defaultMessage: 'Currently Installed',
+	},
+	latest: {
+		id: 'content.modpack-card.latest',
+		defaultMessage: 'Latest',
+	},
+	release: {
+		id: 'content.modpack-card.release',
+		defaultMessage: 'Release',
+	},
+	beta: {
+		id: 'content.modpack-card.beta',
+		defaultMessage: 'Beta',
+	},
+	alpha: {
+		id: 'content.modpack-card.alpha',
+		defaultMessage: 'Alpha',
+	},
 })
 
 interface Props {
@@ -62,9 +98,16 @@ interface Props {
 	hasUpdate?: boolean
 	disabledText?: string
 	showContentHint?: boolean
+	/** CurseForge catalog-pack version list. When non-null, an inline version dropdown is rendered. */
+	versionOptions?: ContentModpackVersionOption[] | null
+	versionLoading?: boolean
+	versionError?: string | null
+	versionBusy?: boolean
+	installedVersionId?: number | null
+	latestVersionId?: number | null
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
 	projectLink: undefined,
 	version: undefined,
 	versionLink: undefined,
@@ -75,6 +118,12 @@ withDefaults(defineProps<Props>(), {
 	hasUpdate: false,
 	disabledText: undefined,
 	showContentHint: false,
+	versionOptions: null,
+	versionLoading: false,
+	versionError: null,
+	versionBusy: false,
+	installedVersionId: null,
+	latestVersionId: null,
 })
 
 const emit = defineEmits<{
@@ -82,6 +131,7 @@ const emit = defineEmits<{
 	content: []
 	settings: []
 	'dismiss-content-hint': []
+	'change-version': [fileId: number]
 }>()
 
 const instance = getCurrentInstance()
@@ -116,6 +166,50 @@ const collapsedOptions = computed(() => {
 	}
 	return options
 })
+
+// Rendered whenever the dropdown is "active": during the initial fetch
+// (options still null), on error (options null), or once loaded. Non-CF packs
+// pass loading=false/error=null/options=null, so they stay hidden.
+const showVersionDropdown = computed(
+	() => props.versionLoading || props.versionError !== null || props.versionOptions !== null,
+)
+
+const currentVersionLabel = computed(() => {
+	const installed = props.versionOptions?.find((o) => o.fileId === props.installedVersionId)
+	return (
+		installed?.fileName ??
+		props.project.filename ??
+		formatMessage(commonMessages.selectVersionPlaceholder)
+	)
+})
+
+function isInstalledVersion(fileId: number) {
+	return props.installedVersionId != null && props.installedVersionId === fileId
+}
+
+function isLatestVersion(fileId: number) {
+	return props.latestVersionId != null && props.latestVersionId === fileId
+}
+
+function releaseTypeLabel(releaseType: number) {
+	if (releaseType === 1) return formatMessage(messages.release)
+	if (releaseType === 2) return formatMessage(messages.beta)
+	if (releaseType === 3) return formatMessage(messages.alpha)
+	return ''
+}
+
+function formatVersionDate(date: string) {
+	return new Date(date).toLocaleDateString('en-US', {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+	})
+}
+
+function handleVersionSelect(fileId: number) {
+	if (props.versionBusy || isInstalledVersion(fileId)) return
+	emit('change-version', fileId)
+}
 
 const containerRef = ref<HTMLElement | null>(null)
 const isExpanded = ref(true)
@@ -274,6 +368,86 @@ onUnmounted(() => {
 								</div>
 							</template>
 						</Tooltip>
+
+						<FloatingPanel
+							v-if="showVersionDropdown"
+							v-tooltip="formatMessage(messages.versionDropdownLabel)"
+							placement="bottom-end"
+							:disabled="props.versionBusy"
+							button-class="!h-9 gap-1.5 max-w-[240px]"
+							panel-class="!p-1.5 w-80"
+							:auto-focus="false"
+						>
+							<DropdownIcon class="size-4 shrink-0" />
+							<span class="truncate text-sm font-semibold">{{ currentVersionLabel }}</span>
+							<template #panel>
+								<div class="flex max-h-80 flex-col gap-0.5 overflow-y-auto">
+									<div
+										v-if="props.versionLoading"
+										class="flex items-center justify-center gap-2 py-8 text-secondary"
+									>
+										<SpinnerIcon class="size-5 animate-spin" />
+										<span class="text-sm">{{ formatMessage(messages.loadingVersions) }}</span>
+									</div>
+									<div
+										v-else-if="props.versionError"
+										class="flex items-center gap-2 px-2 py-6 text-sm text-red"
+									>
+										<CircleAlertIcon class="size-5 shrink-0" />
+										<span class="min-w-0 break-words">{{ props.versionError }}</span>
+									</div>
+									<div v-else-if="!props.versionOptions?.length" class="px-2 py-6 text-sm text-secondary">
+										{{ formatMessage(messages.noVersions) }}
+									</div>
+									<template v-else>
+										<button
+											v-for="option in props.versionOptions"
+											:key="option.fileId"
+											class="flex w-full flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-150 hover:bg-button-bg"
+											:class="isInstalledVersion(option.fileId) ? 'bg-button-bg' : ''"
+											:disabled="props.versionBusy"
+											@click="handleVersionSelect(option.fileId)"
+										>
+											<span class="flex items-center justify-between gap-2">
+												<span class="min-w-0 truncate text-sm font-semibold text-contrast">
+													{{ option.fileName }}
+												</span>
+												<span class="flex shrink-0 items-center gap-1">
+													<span
+														v-if="option.releaseType"
+														class="rounded-full bg-surface-5 px-1.5 py-0.5 text-[10px] font-medium text-secondary"
+													>
+														{{ releaseTypeLabel(option.releaseType) }}
+													</span>
+													<span
+														v-if="isLatestVersion(option.fileId) && !isInstalledVersion(option.fileId)"
+														class="rounded-full bg-surface-5 px-1.5 py-0.5 text-[10px] font-semibold text-contrast"
+													>
+														{{ formatMessage(messages.latest) }}
+													</span>
+													<span
+														v-if="isInstalledVersion(option.fileId)"
+														class="rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-semibold text-white"
+													>
+														{{ formatMessage(messages.currentlyInstalled) }}
+													</span>
+												</span>
+											</span>
+											<span
+												v-if="option.fileDate || option.gameVersions?.length"
+												class="flex items-center gap-1.5 text-xs text-secondary"
+											>
+												<span v-if="option.fileDate">{{ formatVersionDate(option.fileDate) }}</span>
+												<template v-if="option.gameVersions?.length">
+													<span v-if="option.fileDate">·</span>
+													<span class="truncate">{{ option.gameVersions.join(', ') }}</span>
+												</template>
+											</span>
+										</button>
+									</template>
+								</div>
+							</template>
+						</FloatingPanel>
 
 						<ButtonStyled v-if="hasSettingsListener" type="outlined" circular>
 							<button

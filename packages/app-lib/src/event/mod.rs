@@ -20,6 +20,13 @@ pub struct EventState {
     #[cfg(feature = "tauri")]
     pub app: tauri::AppHandle,
     pub loading_bars: DashMap<Uuid, LoadingBar>,
+    /// Latest progress for each CurseForge catalog pack install, keyed by
+    /// project ID. Written by `emit_cf_install_progress` and read by the
+    /// polling command so the frontend can fall back to polling when Tauri
+    /// events emitted during a command are not flushed until the command
+    /// returns.
+    #[cfg(feature = "tauri")]
+    pub cf_install_progress: DashMap<u32, crate::api::pack::curseforge_pack::CfInstallProgress>,
 }
 
 impl EventState {
@@ -30,6 +37,7 @@ impl EventState {
                 Ok(Arc::new(Self {
                     app,
                     loading_bars: DashMap::new(),
+                    cf_install_progress: DashMap::new(),
                 }))
             })
             .await

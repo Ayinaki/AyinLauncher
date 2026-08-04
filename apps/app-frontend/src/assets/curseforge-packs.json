@@ -1,0 +1,26 @@
+[
+	{
+		"name": "All the Mods 10",
+		"projectId": 925200,
+		"description": "The official All the Mods 10 modpack for Minecraft 1.21 NeoForge.",
+		"iconUrl": "https://media.forgecdn.net/avatars/1182/438/638755918649288941.png",
+		"gameVersion": "1.21.1",
+		"loader": "neoforge"
+	},
+	{
+		"name": "RLCraft",
+		"projectId": 285109,
+		"description": "Realism & Hardcore Modpack for Minecraft 1.12.2.",
+		"iconUrl": "https://media.forgecdn.net/avatars/468/243/637751369169569212.png",
+		"gameVersion": "1.12.2",
+		"loader": "forge"
+	},
+	{
+		"name": "Better MC [FORGE]",
+		"projectId": 876781,
+		"description": "Minecraft 1.20.1 Modpack improving the default Vanilla experience.",
+		"iconUrl": "https://media.forgecdn.net/avatars/1095/963/638641361377079410.png",
+		"gameVersion": "1.20.1",
+		"loader": "forge"
+	}
+]

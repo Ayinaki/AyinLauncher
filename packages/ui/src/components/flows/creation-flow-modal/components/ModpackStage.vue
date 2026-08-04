@@ -33,8 +33,7 @@
 			<OverflowMenu
 				placement="bottom-start"
 				:options="[
-					{ id: formatMessage(messages.importModrinthModpack), action: triggerFileInput },
-					{ id: formatMessage(messages.importCurseforgeModpack), action: triggerCurseForgeInput }
+					{ id: formatMessage(messages.importModrinthModpack), action: triggerFileInput }
 				]"
 			>
 				<ButtonStyled type="outlined">
@@ -71,7 +70,6 @@ import { defineAsyncComponent, h, onMounted, ref, watch } from 'vue'
 import { useDebugLogger } from '#ui/composables/debug-logger'
 
 import { injectFilePicker } from '../../../../providers'
-import { injectNotificationManager } from '../../../../providers/web-notifications'
 import ButtonStyled from '../../../base/ButtonStyled.vue'
 import Combobox from '../../../base/Combobox.vue'
 import OverflowMenu from '../../../base/OverflowMenu.vue'
@@ -80,7 +78,6 @@ import { injectCreationFlowContext } from '../creation-flow-context'
 const debug = useDebugLogger('ModpackStage')
 const ctx = injectCreationFlowContext()
 const filePicker = injectFilePicker()
-const notificationManager = injectNotificationManager()
 const { formatMessage } = useVIntl()
 
 const searchLoading = ref(false)
@@ -105,10 +102,6 @@ const messages = defineMessages({
 	importModrinthModpack: {
 		id: 'creation-flow.modal.modpack.action.import.modrinth',
 		defaultMessage: 'Import Modrinth Modpack (.mrpack)',
-	},
-	importCurseforgeModpack: {
-		id: 'creation-flow.modal.modpack.action.import.curseforge',
-		defaultMessage: 'Import CurseForge Modpack (.zip)',
 	},
 	browseModpacks: {
 		id: 'creation-flow.modal.modpack.action.browse',
@@ -237,47 +230,6 @@ async function triggerFileInput() {
 		ctx.modpackFile.value = picked.file ?? null
 		ctx.modpackFilePath.value = picked.path ?? null
 		proceedWithModpack()
-	}
-}
-
-async function triggerCurseForgeInput() {
-	if (ctx.finishDisabled.value) return
-	if (!filePicker.pickCurseforgeModpackFile) return
-	
-	const path = await filePicker.pickCurseforgeModpackFile()
-	if (!path) return
-	
-	ctx.curseforgeZipPath.value = path
-	ctx.modal.value?.setStage('curseforge-import-progress')
-	
-	try {
-		ctx.loading.value = true
-		const result = await ctx.importCurseforgeModpack(path)
-		
-		ctx.instanceName.value = result.name || ''
-		ctx.selectedGameVersion.value = result.gameVersion
-		ctx.selectedLoader.value = result.loader as any
-		ctx.selectedLoaderVersion.value = result.loaderVersion
-		ctx.curseforgeStagingDir.value = result.stagingDir
-		if (result.iconUrl) {
-			ctx.instanceIconPath.value = result.iconUrl
-		}
-
-		if (result.blockedMods && result.blockedMods.length > 0) {
-			ctx.curseforgeBlockedMods.value = result.blockedMods
-			ctx.modal.value?.setStage('curseforge-blocked-mods')
-		} else {
-			// Flow complete for zip if no blocked mods
-			ctx.finish()
-		}
-	} catch (error: any) {
-		notificationManager.addNotification({
-			title: 'Error importing modpack',
-			description: error.message || String(error),
-			type: 'error'
-		})
-	} finally {
-		ctx.loading.value = false
 	}
 }
 </script>

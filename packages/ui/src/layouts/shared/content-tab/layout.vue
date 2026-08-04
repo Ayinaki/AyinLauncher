@@ -699,11 +699,20 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
 					:show-content-hint="
 						!!(ctx.showContentHint?.value && ctx.modpack.value && ctx.items.value.length === 0)
 					"
+					:version-options="ctx.modpackVersions?.value ?? null"
+					:version-loading="ctx.modpackVersionsLoading?.value ?? false"
+					:version-error="ctx.modpackVersionsError?.value ?? null"
+					:version-busy="ctx.modpackVersionsBusy?.value ?? false"
+					:installed-version-id="ctx.modpackInstalledVersionId?.value ?? null"
+					:latest-version-id="ctx.modpackLatestVersionId?.value ?? null"
 					v-on="{
 						...(ctx.updateModpack ? { update: () => ctx.updateModpack?.() } : {}),
 						...(ctx.viewModpackContent ? { content: () => ctx.viewModpackContent?.() } : {}),
 						...(ctx.unlinkModpack ? { unlink: () => confirmUnlinkModal?.show() } : {}),
 						...(ctx.openSettings ? { settings: () => ctx.openSettings?.() } : {}),
+						...(ctx.changeModpackVersion
+							? { 'change-version': (fileId: number) => ctx.changeModpackVersion?.(fileId) }
+							: {}),
 					}"
 					@dismiss-content-hint="ctx.dismissContentHint?.()"
 				/>

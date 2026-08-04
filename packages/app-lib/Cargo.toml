@@ -30,6 +30,7 @@ chrono = { workspace = true, features = ["serde"] }
 daedalus = { workspace = true }
 dashmap = { workspace = true, features = ["serde"] }
 data-url = { workspace = true }
+dotenvy = { workspace = true }
 derive_more = { workspace = true, features = ["display"] }
 dirs = { workspace = true }
 discord-rich-presence = { workspace = true }

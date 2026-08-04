@@ -206,6 +206,12 @@ const isLocalFile = computed(() => {
 
 const isLinkedModpack = computed(() => showModpackVersionActions.value || isLocalFile.value)
 
+const hideChangeVersion = computed(() => {
+	const val = ctx.hideChangeVersion
+	if (val == null) return false
+	return typeof val === 'boolean' ? val : val.value
+})
+
 function handleModpackUpdateRequest(version: Labrinth.Versions.v2.Version, event?: MouseEvent) {
 	debug('handleModpackUpdateRequest: start', {
 		versionId: version.id,
@@ -655,7 +661,7 @@ const messages = defineMessages({
 						</div>
 					</div>
 					<div class="flex flex-wrap gap-2">
-						<ButtonStyled v-if="showModpackVersionActions || isLocalFile">
+						<ButtonStyled v-if="(showModpackVersionActions || isLocalFile) && !hideChangeVersion">
 							<button
 								v-tooltip="ctx.isBusy.value ? ctx.busyMessage?.value : undefined"
 								class="!shadow-none"

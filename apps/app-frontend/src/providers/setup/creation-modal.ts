@@ -17,8 +17,6 @@ import {
 	install_create_instance,
 	install_create_modpack_instance,
 	install_get_modpack_preview,
-	install_open_cf_urls,
-	install_scan_folder_for_mods,
 } from '@/helpers/install'
 import { list } from '@/helpers/instance'
 import { get_loader_versions as getLoaderManifest } from '@/helpers/metadata.js'
@@ -143,7 +141,6 @@ export function setupCreationModal(notificationManager: AbstractWebNotificationM
 				: (config.selectedLoaderVersion.value ?? config.loaderVersionType.value)
 			const iconPath = config.instanceIconPath.value ?? null
 			const name = config.instanceName.value.trim() || config.autoInstanceName.value
-			const importPath = config.curseforgeStagingDir.value ?? null
 
 			await install_create_instance({
 				name,
@@ -151,7 +148,6 @@ export function setupCreationModal(notificationManager: AbstractWebNotificationM
 				loader: loader as InstanceLoader,
 				loaderVersion,
 				iconPath,
-				importPath,
 			}).catch(handleError)
 
 			trackEvent('InstanceCreate', {
@@ -201,46 +197,6 @@ export function setupCreationModal(notificationManager: AbstractWebNotificationM
 		return versions ?? []
 	}
 
-	async function handleScanFolderForMods(folderPath?: string): Promise<{ found: number; remaining: any[] }> {
-		const ctx = installationModal.value?.ctx
-		if (!ctx) return { found: 0, remaining: [] }
-
-		const stagingDir = ctx.curseforgeStagingDir.value
-		const blockedMods = ctx.curseforgeBlockedMods.value
-
-		if (!stagingDir || !blockedMods || blockedMods.length === 0) {
-			return { found: 0, remaining: blockedMods ?? [] }
-		}
-
-		const expected = blockedMods
-			.filter((m: any) => !m.found)
-			.map((m: any) => ({
-				projectId: m.projectId ?? m.project_id ?? 0,
-				fileId: m.fileId ?? m.file_id ?? 0,
-				expectedFileName: m.expectedFileName ?? m.expected_file_name ?? '',
-				expectedSize: m.expectedSize ?? m.expected_size ?? null,
-				hash: m.hash ?? null,
-				pageUrl: m.pageUrl ?? m.page_url ?? '',
-			}))
-
-		const foundNames: string[] = await install_scan_folder_for_mods(
-			stagingDir,
-			folderPath ?? null,
-			expected,
-		).catch(() => [])
-
-		const foundSet = new Set(foundNames)
-		const remaining = blockedMods.filter(
-			(m: any) => !m.found && !foundSet.has(m.expectedFileName ?? m.expected_file_name ?? ''),
-		)
-
-		return { found: foundNames.length, remaining }
-	}
-
-	async function handleOpenCfUrls(urls: string[]): Promise<void> {
-		await install_open_cf_urls(urls)
-	}
-
 	return {
 		installationModal,
 		unknownPackWarningModal,
@@ -253,7 +209,6 @@ export function setupCreationModal(notificationManager: AbstractWebNotificationM
 		setModpackAlreadyInstalledModal,
 		handleModpackDuplicateCreateAnyway,
 		handleModpackDuplicateGoToInstance,
-		handleScanFolderForMods,
-		handleOpenCfUrls,
 	}
 }
+

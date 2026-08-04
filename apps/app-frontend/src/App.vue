@@ -18,6 +18,7 @@ import {
 	RefreshCwIcon,
 	RightArrowIcon,
 	SettingsIcon,
+	SpinnerIcon,
 	WorldIcon,
 	XIcon,
 } from '@modrinth/assets'
@@ -52,7 +53,7 @@ import { openUrl } from '@tauri-apps/plugin-opener'
 import { type } from '@tauri-apps/plugin-os'
 import { saveWindowState, StateFlags } from '@tauri-apps/plugin-window-state'
 import { $fetch } from 'ofetch'
-import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import { computed, onErrorCaptured, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 
 import AyinAppLogo from '@/assets/ayin_app.svg?component'
@@ -89,9 +90,6 @@ import {
 import {
   install_create_modpack_instance,
   install_get_modpack_preview,
-  install_import_curseforge_modpack,
-  install_open_cf_urls,
-  install_scan_folder_for_mods,
 } from '@/helpers/install'
 import { list, run } from '@/helpers/instance'
 import { cancelLogin, get as getCreds, login, logout } from '@/helpers/mr_auth.ts'
@@ -212,8 +210,6 @@ const {
 	setModpackAlreadyInstalledModal,
 	handleModpackDuplicateCreateAnyway,
 	handleModpackDuplicateGoToInstance,
-	handleScanFolderForMods,
-	handleOpenCfUrls,
 } = setupProviders(notificationManager, popupNotificationManager)
 
 const availableSurvey = ref(false)
@@ -521,6 +517,20 @@ watch(stateInitialized, (ready) => {
 const error = useError()
 const errorModal = ref()
 const minecraftAuthErrorModal = ref()
+
+// Error boundary for routed pages. Every page is an async component (top-level
+// await in <script setup>); if one of those promises REJECTS, Suspense cannot
+// render it and — without this boundary — the viewport silently goes blank.
+// Catch such failures here and surface them through the existing error modal so
+// the user sees what failed instead of a blank page. (The modal ref is only
+// wired up in onMounted, so fall back to a console error if it isn't ready yet.)
+onErrorCaptured((err, _instance, info) => {
+	console.error(`[page-render-error] ${info}`, err)
+	if (error.errorModal) {
+		error.showError(err, 'page-render-error')
+	}
+	return false
+})
 
 const contentInstall = createContentInstall({ router, handleError })
 provideContentInstall(contentInstall)
@@ -1096,34 +1106,21 @@ function handleAuxClick(e) {
 }
 
 function getTransitionKey(route) {
-	return route.path
-}
+	// Key on the top-level page section instead of the full path so that
+	// navigating between sub-routes of the same parent (Library tabs,
+	// Project/Instance sub-tabs) does NOT remount the parent component and
+	// re-run its entire async setup + data fetching. Nested pages re-render
+	// their own inner RouterView and refetch on route changes internally.
+	const section = route.path.split('/')[1] || 'home'
 
-function shouldApplyTransition(route) {
-	const mainSection = route.path.split('/')[1] || 'home'
-
-	if (mainSection === 'project' || mainSection === 'instance') {
-		return false
+	// Include the dynamic id for detail pages so switching between different
+	// instances/projects still remounts (their params genuinely change the
+	// page's identity).
+	if (section === 'instance' || section === 'project') {
+		return `${section}-${route.params.id ?? ''}`
 	}
 
-	return (
-		route.path === '/' ||
-		route.path === '/browse' ||
-		route.path.startsWith('/browse/') ||
-		route.path === '/library'
-	)
-}
-
-function getTransitionType(route) {
-	if (route.path === '/') {
-		return 'main-page-transition'
-	} else if (route.path.startsWith('/browse')) {
-		return 'discover-transition'
-	} else if (route.path === '/library') {
-		return 'library-transition'
-	} else {
-		return 'main-page-transition'
-	}
+	return section
 }
 
 function cleanupOldSurveyDisplayData() {
@@ -1275,9 +1272,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 			:search-modpacks="searchModpacks"
 			:get-project-versions="getProjectVersions"
 			:get-loader-manifest="getLoaderManifest"
-			:import-curseforge-modpack="install_import_curseforge_modpack"
-			:scan-folder-for-mods="handleScanFolderForMods"
-			:open-cf-urls="handleOpenCfUrls"
 			@create="handleCreate"
 			@browse-modpacks="handleBrowseModpacks"
 		/>
@@ -1456,20 +1450,31 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 			</Admonition>
 			<RouterView v-slot="{ Component, route: viewRoute }">
 				<template v-if="Component">
-					<template v-if="shouldApplyTransition(viewRoute)">
-						<div class="transition-container">
-							<Transition :name="getTransitionType(viewRoute)" mode="out-in" appear>
-								<Suspense @pending="onSuspensePending" @resolve="onSuspenseResolve">
-									<component :is="Component" :key="getTransitionKey(viewRoute)"></component>
-								</Suspense>
-							</Transition>
-						</div>
-					</template>
-					<template v-else>
+					<!--
+					  Every routed page in this app is an async component (each has a
+					  top-level await in <script setup>), so ALL of them resolve through
+					  this Suspense boundary. Keying the wrapper forces a fresh Suspense
+					  per top-level section so the fallback spinner reliably shows while
+					  the new page resolves.
+
+					  Deliberately NO <Transition mode="out-in"> here: wrapping a Suspense
+					  whose child is an async component in an out-in Transition is a known
+					  Vue failure mode that leaves the viewport completely blank (the
+					  enter phase never completes for the resolved content, and the
+					  fallback itself can stay stuck at the enter-from opacity:0).
+					  Reliable page loading matters more than the fade; a plain CSS
+					  animation on the container provides the transition effect instead.
+					-->
+					<div class="route-container" :key="getTransitionKey(viewRoute)">
 						<Suspense @pending="onSuspensePending" @resolve="onSuspenseResolve">
-							<component :is="Component" :key="getTransitionKey(viewRoute)"></component>
+							<template #fallback>
+								<div class="flex h-full w-full items-center justify-center">
+									<SpinnerIcon class="animate-spin w-8 h-8 text-[--color-brand]" />
+								</div>
+							</template>
+							<component :is="Component"></component>
 						</Suspense>
-					</template>
+					</div>
 				</template>
 			</RouterView>
 		</div>
@@ -1759,88 +1764,36 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 	transform: translateY(10rem) scale(0.8) scaleY(1.6);
 }
 
-/* Page Transition Styles */
-/* Main page transitions - bigger effects for Home, Browse, Library */
-.main-page-transition-enter-active {
-	transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
+/* Page transition effect. This is a plain CSS animation (not a Vue
+   <Transition>): it always runs to completion and can never leave the page
+   stuck at opacity 0 — which is exactly what the previous Transition
+   mode="out-in" + Suspense nesting did for async route pages.
 
-.main-page-transition-leave-active {
-	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.main-page-transition-enter-from {
-	opacity: 0;
-	transform: translateY(20px) scale(0.98);
-	filter: blur(2px);
-}
-
-.main-page-transition-leave-to {
-	opacity: 0;
-	transform: translateY(-20px) scale(0.98);
-	filter: blur(2px);
-}
-
-.main-page-transition-enter-to,
-.main-page-transition-leave-from {
-	opacity: 1;
-	transform: translateY(0) scale(1);
-	filter: blur(0);
-}
-
-.discover-transition-enter-active {
-	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.discover-transition-leave-active {
-	transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.discover-transition-enter-from {
-	opacity: 0;
-	transform: translateX(-20px);
-}
-
-.discover-transition-leave-to {
-	opacity: 0;
-	transform: translateX(20px);
-}
-
-.discover-transition-enter-to,
-.discover-transition-leave-from {
-	opacity: 1;
-	transform: translateX(0);
-}
-
-.library-transition-enter-active {
-	transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.library-transition-leave-active {
-	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.library-transition-enter-from {
-	opacity: 0;
-	transform: translateY(15px) scale(0.98);
-}
-
-.library-transition-leave-to {
-	opacity: 0;
-	transform: translateY(-15px) scale(0.98);
-}
-
-.library-transition-enter-to,
-.library-transition-leave-from {
-	opacity: 1;
-	transform: translateY(0) scale(1);
-}
-
-.transition-container {
-	overflow: hidden;
+   Deliberately NO overflow: hidden here. Pages taller than the viewport
+   (Skins, instance pages in scroll mode, project pages, ...) previously had
+   no wrapper at all and were scrolled by .app-viewport (overflow: auto).
+   Clipping inside this wrapper is what broke scrolling on those pages. With
+   overflow visible, tall content flows through to .app-viewport, which
+   scrolls it. The explicit height: 100% keeps percentage-height chains
+   (fallback spinner centering, instance fixed-mode h-full tabs) working. */
+.route-container {
 	height: 100%;
+	min-height: 100%;
 	width: 100%;
+	animation: route-fade-in 0.25s ease-out;
 }
+
+@keyframes route-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
 
 @media (prefers-reduced-motion: no-preference) {
 	.nav-button-animated-enter-active {

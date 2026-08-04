@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { injectNotificationManager } from '@modrinth/ui'
-import { onUnmounted, shallowRef } from 'vue'
+import { onUnmounted, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { NewInstanceImage } from '@/assets/icons'
@@ -16,6 +16,21 @@ breadcrumbs.setRootContext({ name: 'Library', link: route.path })
 
 const instances = shallowRef(await list().catch(handleError))
 
+// Re-fetch instances whenever the Library route becomes active (not just on
+// mount). Vue Router reuses the component instance when navigating back to
+// /library because the route key is the same, so the top-level await above
+// only runs once. This watcher ensures the list is fresh on every visit.
+watch(
+	() => route.path,
+	(path) => {
+		if (path.startsWith('/library')) {
+			list().catch(handleError).then((result) => {
+				if (result) instances.value = result
+			})
+		}
+	},
+)
+
 const unlistenInstance = await instance_listener(async (e: any) => {
 	if (e?.event === 'added' || e?.event === 'created' || e?.event === 'removed' || e?.event === 'synced') {
 		instances.value = await list().catch(handleError)
@@ -30,7 +45,9 @@ onUnmounted(() => {
 	<div class="library-container">
 		<div class="p-6 pt-6 flex-1 min-h-0">
 			<template v-if="instances && instances.length > 0">
-				<RouterView v-if="route.path.startsWith('/library')" :instances="instances" />
+				<Suspense>
+					<RouterView v-if="route.path.startsWith('/library')" :instances="instances" />
+				</Suspense>
 			</template>
 			<div v-else class="no-instance">
 				<div class="icon">
@@ -47,8 +64,10 @@ onUnmounted(() => {
 .library-container {
 	display: flex;
 	flex-direction: column;
-	height: 100vh;
-	background: linear-gradient(135deg, var(--color-bg) 0%, var(--color-bg-secondary) 100%);
+	height: 100%;
+	/* No background here: like the other pages, the Library is transparent so
+	   the app's blurred background image (rendered behind the viewport in
+	   App.vue) shows through. An opaque background would cover it. */
 	overflow: hidden;
 }
 

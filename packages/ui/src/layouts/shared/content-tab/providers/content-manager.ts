@@ -11,6 +11,7 @@ import type {
 	ContentModpackCardCategory,
 	ContentModpackCardProject,
 	ContentModpackCardVersion,
+	ContentModpackVersionOption,
 	ContentOwner,
 } from '../types'
 
@@ -81,6 +82,17 @@ export interface ContentManagerContext {
 	viewModpackContent?: () => void
 	unlinkModpack?: () => void
 	openSettings?: () => void
+
+	// CurseForge catalog-pack version switching (optional — only provided for
+	// CF-linked instances). When `modpackVersions` is provided the pack card
+	// renders an inline version dropdown; otherwise no dropdown is shown.
+	modpackVersions?: Ref<ContentModpackVersionOption[] | null> | ComputedRef<ContentModpackVersionOption[] | null>
+	modpackVersionsLoading?: Ref<boolean> | ComputedRef<boolean>
+	modpackVersionsError?: Ref<string | null> | ComputedRef<string | null>
+	modpackVersionsBusy?: Ref<boolean> | ComputedRef<boolean>
+	modpackInstalledVersionId?: Ref<number | null> | ComputedRef<number | null>
+	modpackLatestVersionId?: Ref<number | null> | ComputedRef<number | null>
+	changeModpackVersion?: (fileId: number) => void | Promise<void>
 
 	// Switch version (optional)
 	switchVersion?: (item: ContentItem) => void

@@ -77,13 +77,6 @@ export function setupFilePickerProvider() {
 				previewUrl: '',
 			}
 		},
-		async pickCurseforgeModpackFile() {
-			const result = await open({
-				multiple: false,
-				filters: [{ name: 'CurseForge Modpack', extensions: ['zip'] }],
-			})
-			if (!result) return null
-			return getDialogPath(result)
-		},
 	})
 }
+
