@@ -85,7 +85,17 @@ jobs:
           pnpm install
       - name: Configure app environment
         shell: bash
-        run: cp packages/app-lib/.env.prod packages/app-lib/.env
+        env:
+          CURSEFORGE_API_KEY: '${{ secrets.CURSEFORGE_API_KEY }}'
+        run: |
+          cp packages/app-lib/.env.prod packages/app-lib/.env
+          # Embed the CurseForge API key into the release build: app-lib's
+          # build.rs compiles every .env var into the binary, where
+          # curseforge_api_key() picks it up via option_env! at runtime. The
+          # key lives only in GitHub secrets — never in the repo.
+          if [ -n "$CURSEFORGE_API_KEY" ]; then
+            echo "CURSEFORGE_API_KEY='$CURSEFORGE_API_KEY'" >> packages/app-lib/.env
+          fi
       - name: build app (macos)
         run: >-
           pnpm --filter=@modrinth/app run tauri build --target
@@ -95,6 +105,9 @@ jobs:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           TAURI_SIGNING_PRIVATE_KEY: '${{ secrets.TAURI_PRIVATE_KEY }}'
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: '${{ secrets.TAURI_KEY_PASSWORD }}'
+          # Also pass through so rustc's option_env! sees it even if the
+          # build.rs .env embedding ever changes.
+          CURSEFORGE_API_KEY: '${{ secrets.CURSEFORGE_API_KEY }}'
       - name: build app
         run: >-
           pnpm --filter=@modrinth/app run tauri build --config
@@ -105,6 +118,9 @@ jobs:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           TAURI_SIGNING_PRIVATE_KEY: '${{ secrets.TAURI_PRIVATE_KEY }}'
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: '${{ secrets.TAURI_KEY_PASSWORD }}'
+          # Also pass through so rustc's option_env! sees it even if the
+          # build.rs .env embedding ever changes.
+          CURSEFORGE_API_KEY: '${{ secrets.CURSEFORGE_API_KEY }}'
       - name: 'upload ${{ matrix.platform }}'
         uses: actions/upload-artifact@v4
         with:

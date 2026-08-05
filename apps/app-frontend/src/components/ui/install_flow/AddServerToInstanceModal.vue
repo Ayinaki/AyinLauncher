@@ -11,9 +11,11 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { computed, ref } from 'vue'
 
+import MinecraftText from '@/components/ui/MinecraftText.vue'
 import ModalWrapper from '@/components/ui/modal/ModalWrapper.vue'
 import { trackEvent } from '@/helpers/analytics'
 import { list } from '@/helpers/instance'
+import { stripMinecraftCodes } from '@/helpers/minecraft-colors'
 import { add_server_to_instance, get_instance_worlds } from '@/helpers/worlds.ts'
 
 const { handleError } = injectNotificationManager()
@@ -28,7 +30,9 @@ const serverAddress = ref('')
 
 const shownInstances = computed(() =>
 	instances.value.filter((instance) => {
-		return instance.name.toLowerCase().includes(searchFilter.value.toLowerCase())
+		return stripMinecraftCodes(instance.name)
+			.toLowerCase()
+			.includes(searchFilter.value.toLowerCase())
 	}),
 )
 
@@ -107,7 +111,7 @@ async function addServer(instance) {
 							:src="instance.icon_path ? convertFileSrc(instance.icon_path) : null"
 							class="mr-2 [--size:2rem]"
 						/>
-						{{ instance.name }}
+						<MinecraftText :text="instance.name" />
 					</router-link>
 					<ButtonStyled>
 						<button :disabled="instance.added || instance.adding" @click="addServer(instance)">

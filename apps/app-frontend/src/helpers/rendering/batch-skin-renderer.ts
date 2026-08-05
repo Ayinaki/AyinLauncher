@@ -239,7 +239,7 @@ export async function generatePlayerHeadBlob(skinUrl: string, size: number = 64)
 		img.onload = () => {
 			try {
 				const sourceCanvas = document.createElement('canvas')
-				const sourceCtx = sourceCanvas.getContext('2d')
+				const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true })
 
 				if (!sourceCtx) {
 					throw new Error('Could not get 2D context from source canvas')
@@ -265,7 +265,7 @@ export async function generatePlayerHeadBlob(skinUrl: string, size: number = 64)
 				const headImageData = sourceCtx.getImageData(8, 8, 8, 8)
 
 				const headCanvas = document.createElement('canvas')
-				const headCtx = headCanvas.getContext('2d')
+				const headCtx = headCanvas.getContext('2d', { willReadFrequently: true })
 
 				if (!headCtx) {
 					throw new Error('Could not get 2D context from head canvas')
@@ -280,7 +280,7 @@ export async function generatePlayerHeadBlob(skinUrl: string, size: number = 64)
 				const hatImageData = sourceCtx.getImageData(40, 8, 8, 8)
 
 				const hatCanvas = document.createElement('canvas')
-				const hatCtx = hatCanvas.getContext('2d')
+				const hatCtx = hatCanvas.getContext('2d', { willReadFrequently: true })
 
 				if (!hatCtx) {
 					throw new Error('Could not get 2D context from hat canvas')
@@ -469,9 +469,6 @@ async function generateSkinPreviewsForGeneration(
 
 		if (isCurrentGeneration()) {
 			await cleanupUnusedPreviews(skins)
-
-			await skinPreviewStorage.debugCalculateStorage()
-			await headStorage.debugCalculateStorage()
 		}
 	}
 }

@@ -1,6 +1,7 @@
-<template>{{ instance.name }} overview</template>
+<template><MinecraftText :text="instance.name" /> overview</template>
 <script setup lang="ts">
 import type ContextMenu from '@/components/ui/ContextMenu.vue'
+import MinecraftText from '@/components/ui/MinecraftText.vue'
 import type { GameInstance } from '@/helpers/types'
 
 defineProps<{

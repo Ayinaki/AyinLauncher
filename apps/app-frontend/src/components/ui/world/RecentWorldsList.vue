@@ -92,8 +92,6 @@ async function populateJumpBackIn() {
 	if (isLinux && linuxPopulateCount.value >= MAX_LINUX_POPULATES) return
 	if (isLinux) linuxPopulateCount.value++
 
-	console.info('Repopulating jump back in...')
-
 	const worldItems: WorldJumpBackInItem[] = []
 
 	if (showWorlds.value) {

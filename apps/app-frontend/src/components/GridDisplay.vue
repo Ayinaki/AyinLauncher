@@ -18,6 +18,7 @@ import Instance from '@/components/ui/Instance.vue'
 import ConfirmDeleteInstanceModal from '@/components/ui/modal/ConfirmDeleteInstanceModal.vue'
 import { install_duplicate_instance } from '@/helpers/install'
 import { remove } from '@/helpers/instance'
+import { stripMinecraftCodes } from '@/helpers/minecraft-colors'
 
 const { handleError } = injectNotificationManager()
 
@@ -161,7 +162,7 @@ const filteredResults = computed(() => {
 
 	if (sortBy === 'Name') {
 		instances.sort((a, b) => {
-			return a.name.localeCompare(b.name)
+			return stripMinecraftCodes(a.name).localeCompare(stripMinecraftCodes(b.name))
 		})
 	}
 
@@ -237,7 +238,7 @@ const filteredResults = computed(() => {
 			if (a[0] !== 'None' && b[0] === 'None') {
 				return 1
 			}
-			return a[0].localeCompare(b[0])
+			return stripMinecraftCodes(a[0]).localeCompare(stripMinecraftCodes(b[0]))
 		})
 		instanceMap.clear()
 		sortedEntries.forEach((entry) => {
@@ -351,20 +352,22 @@ const filteredResults = computed(() => {
 
 	.section-title {
 		margin: 0;
-		font-size: 1.5rem;
-		font-weight: 700;
+		font-size: 1.125rem;
+		font-weight: 800;
+		letter-spacing: 0.01em;
 		white-space: nowrap;
-		padding: 0.5rem 1rem;
-		background: var(--color-brand);
-		border-radius: 0.5rem;
-		color: white;
+		color: var(--color-secondary);
+		text-transform: uppercase;
+		padding-bottom: 0.5rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+		width: 100%;
 	}
 }
 
 .instances-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-	gap: 1.5rem;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 1.25rem;
 	width: 100%;
 }
 

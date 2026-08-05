@@ -1,24 +1,23 @@
 <script setup lang="ts">
 import { DownloadIcon, PlayIcon, SpinnerIcon } from '@modrinth/assets'
 import { ButtonStyled, injectNotificationManager } from '@modrinth/ui'
-import { openUrl } from '@tauri-apps/plugin-opener'
 import dayjs from 'dayjs'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import curseforgePacks from '@/assets/curseforge-packs.json'
+import CurseForgeBlockedModsDialog from '@/components/ui/CurseForgeBlockedModsDialog.vue'
+import CurseForgeInstallProgressModal from '@/components/ui/CurseForgeInstallProgressModal.vue'
 import RecentWorldsList from '@/components/ui/world/RecentWorldsList.vue'
 import { trackEvent } from '@/helpers/analytics'
 import { get_project, get_search_results, get_version_many } from '@/helpers/cache.js'
 import { cf_install_progress_listener, instance_listener, process_listener } from '@/helpers/events'
 import {
-	type BlockedModScanResult,
 	check_curseforge_pack_update,
 	type CurseForgeBlockedMod,
 	type CurseForgeCatalogPack,
 	get_curseforge_catalog,
 	install_curseforge_catalog_pack,
-	scan_downloads_for_blocked_mods,
 } from '@/helpers/install'
 import { list, run, update_managed_modrinth_version } from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types'
@@ -71,34 +70,24 @@ const installed = ref({})
 const updating = ref({})
 const hasUpdate = ref({})
 
-const installProgress = ref<Record<string, {
-	phase?: string
-	current: number
-	total: number
-	bytesDownloaded: number
-	totalBytes: number
-	message?: string
-}>>({})
+const installProgress = ref<
+	Record<
+		string,
+		{
+			phase?: string
+			current: number
+			total: number
+			bytesDownloaded: number
+			totalBytes: number
+			message?: string
+		}
+	>
+>({})
 const blockedModsDialog = ref<{
 	packTitle: string
 	instanceId: string
 	mods: CurseForgeBlockedMod[]
 } | null>(null)
-const openingAll = ref(false)
-const scanningDownloads = ref(false)
-const scanMessage = ref<string | null>(null)
-type ScanStatus = 'pending' | 'moved' | 'not_found' | 'conflict'
-type ScanStatusEntry = { status: ScanStatus; destination: string | null }
-const scanStatuses = ref<Record<number, ScanStatusEntry>>({})
-// Mods that still need a manual download (pending, or not found after a scan).
-const unresolvedScanMods = computed(() => {
-	const dialog = blockedModsDialog.value
-	if (!dialog) return []
-	return dialog.mods.filter((mod) => {
-		const s = scanStatuses.value[mod.fileId]
-		return !s || s.status === 'pending' || s.status === 'not_found'
-	})
-})
 
 const selectedModpackId = ref(localStorage.getItem('lastSelectedModpack') || '')
 const selectedModpack = computed(() =>
@@ -199,9 +188,7 @@ const getFeaturedModpacks = async () => {
 		liveCurseforgePacks.map(async (pack) => {
 			const packId = `cf-${pack.projectId}`
 			const instance = instances.find(
-				(p) =>
-					p.link?.project_id === String(pack.projectId) ||
-					p.name === pack.name,
+				(p) => p.link?.project_id === String(pack.projectId) || p.name === pack.name,
 			)
 			// The instance appears in the list the moment it is created on disk —
 			// long before downloads, blocked-mod detection, and the
@@ -262,7 +249,13 @@ const isInstallInProgress = (projectId: string): boolean =>
 const install = async (projectId: string) => {
 	const pack = featuredModpacks.value.find((m) => m.project_id === projectId)
 	installing.value[projectId] = true
-	installProgress.value[projectId] = { current: 0, total: 1, bytesDownloaded: 0, totalBytes: 0, message: 'Starting...' }
+	installProgress.value[projectId] = {
+		current: 0,
+		total: 1,
+		bytesDownloaded: 0,
+		totalBytes: 0,
+		message: 'Starting...',
+	}
 	// Open the install progress modal
 	if (pack) {
 		openInstallModal({
@@ -310,14 +303,18 @@ const updateModpack = async (projectId: string) => {
 	const pack = featuredModpacks.value.find((m) => m.project_id === projectId)
 	if (!updating.value[projectId]) {
 		updating.value[projectId] = true
-		installProgress.value[projectId] = { current: 0, total: 1, bytesDownloaded: 0, totalBytes: 0, message: 'Starting...' }
+		installProgress.value[projectId] = {
+			current: 0,
+			total: 1,
+			bytesDownloaded: 0,
+			totalBytes: 0,
+			message: 'Starting...',
+		}
 		try {
 			if (pack?.source === 'curseforge') {
 				const instances = (await list().catch(handleError)) ?? []
 				const instance = instances.find(
-					(i) =>
-						i.link?.project_id === String(pack.projectId) ||
-						i.name === pack.title,
+					(i) => i.link?.project_id === String(pack.projectId) || i.name === pack.title,
 				)
 				if (instance?.id) {
 					const result = await install_curseforge_catalog_pack(
@@ -372,8 +369,7 @@ const unlistenProcess = await process_listener((e) => {
 	if (instance) {
 		const pack = featuredModpacks.value.find((m) =>
 			m.source === 'curseforge'
-				? instance.link?.project_id === String(m.projectId) ||
-				  instance.name === m.title
+				? instance.link?.project_id === String(m.projectId) || instance.name === m.title
 				: instance.link?.project_id === m.project_id,
 		)
 		if (pack) {
@@ -387,8 +383,7 @@ const play = async (projectId: string) => {
 	const instances = (await list().catch(handleError)) ?? []
 	const instance = instances.find((p) =>
 		pack?.source === 'curseforge'
-			? p.link?.project_id === String(pack.projectId) ||
-			  p.name === pack.title
+			? p.link?.project_id === String(pack.projectId) || p.name === pack.title
 			: p.link?.project_id === projectId,
 	)
 	if (instance) {
@@ -418,51 +413,28 @@ const getFeaturedMods = async () => {
 }
 
 const isLoading = ref(true)
-Promise.all([
-	getInstances(),
-	getFeaturedModpacks(),
-	getFeaturedMods()
-]).finally(() => {
+Promise.all([getInstances(), getFeaturedModpacks(), getFeaturedMods()]).finally(() => {
 	isLoading.value = false
 })
 
-const unlistenInstance = await instance_listener(async (e: { instance_id: string; event: string }) => {
-	if (
+const unlistenInstance = await instance_listener(
+	async (e: { instance_id: string; event: string }) => {
+		if (
 			e?.event === 'added' ||
 			e?.event === 'created' ||
 			e?.event === 'edited' ||
 			e?.event === 'removed' ||
 			e?.event === 'synced'
-	) {
-		await getInstances()
-		await Promise.all([getFeaturedModpacks(), getFeaturedMods()])
-	}
-})
+		) {
+			await getInstances()
+			await Promise.all([getFeaturedModpacks(), getFeaturedMods()])
+		}
+	},
+)
 
-// Rolling sample history per project for throughput computation. Progress
-// events arrive per-file completion (with up to 12 concurrent downloads), so
-// consecutive events can be only milliseconds apart — the old
-// last-two-events delta produced nonsense "speed" values. Instead keep the
-// most recent ~2s of (bytes, time) samples and average the rate across the
-// whole window, which converges to the true aggregate download throughput.
-const SPEED_WINDOW_MS = 2000
-const speedSamples = ref<Record<string, Array<{ bytes: number; time: number }>>>({})
-
-const recordSpeedSample = (key: string, bytes: number) => {
-	const now = Date.now()
-	const samples = speedSamples.value[key] ?? []
-	samples.push({ bytes, time: now })
-	// Prune samples older than the window, always keeping the newest sample
-	// as the window's leading edge.
-	const cutoff = now - SPEED_WINDOW_MS
-	while (samples.length > 1 && samples[0].time < cutoff) {
-		samples.shift()
-	}
-	speedSamples.value[key] = samples
-}
-
-// Install progress modal state
-const installModalVisible = ref(false)
+// Install progress modal state. Visibility is derived from a non-null
+// progress entry (the modal component renders while `installModalProgress`
+// exists), so no separate visibility flag is needed.
 const installModalPack = ref<{
 	title: string
 	icon_url: string | null
@@ -471,10 +443,8 @@ const installModalPack = ref<{
 
 const openInstallModal = (pack: { title: string; icon_url: string | null; projectId: string }) => {
 	installModalPack.value = pack
-	installModalVisible.value = true
 }
 const closeInstallModal = () => {
-	installModalVisible.value = false
 	installModalPack.value = null
 }
 
@@ -483,48 +453,6 @@ const installModalProgress = computed(() => {
 	const pack = installModalPack.value
 	if (!pack) return null
 	return installProgress.value[pack.projectId] ?? null
-})
-
-const installModalProgressPercent = computed(() => {
-	const progress = installModalProgress.value
-	if (!progress || progress.total <= 0) return 0
-	if (progress.totalBytes > 0) {
-		return Math.min(100, (progress.bytesDownloaded / progress.totalBytes) * 100)
-	}
-	return Math.min(100, (progress.current / progress.total) * 100)
-})
-
-const installModalStatusText = computed(() => {
-	const progress = installModalProgress.value
-	if (!progress) return ''
-	const msg = progress.message ?? ''
-	const parts: string[] = []
-	if (progress.totalBytes > 0 && progress.bytesDownloaded > 0) {
-		parts.push(`${formatBytes(progress.bytesDownloaded)} / ${formatBytes(progress.totalBytes)}`)
-	}
-	const speed = downloadSpeed(installModalPack.value?.projectId ?? '')
-	if (speed) {
-		parts.push(speed)
-	}
-	const suffix = parts.length > 0 ? ` — ${parts.join(' · ')}` : ''
-	return msg + suffix
-})
-
-// Subtitle for the install modal, mapped from the live phase payload so it
-// tracks the actual install stage instead of always claiming "Downloading mods".
-const installModalPhaseText = computed(() => {
-	switch (installModalProgress.value?.phase) {
-		case 'fetching_pack':
-			return 'Fetching modpack info…'
-		case 'downloading_mods':
-			return 'Downloading mods'
-		case 'installing_minecraft':
-			return 'Installing Minecraft and loader'
-		case 'finished':
-			return 'Finishing…'
-		default:
-			return 'Installing…'
-	}
 })
 
 // Payload of the backend `cf_install_progress` event.
@@ -538,23 +466,26 @@ interface CfInstallProgressPayload {
 	message: string | null
 }
 
-const unlistenCfProgress = await cf_install_progress_listener((payload: CfInstallProgressPayload) => {
-	const key = `cf-${payload.projectId}`
-	installProgress.value[key] = {
-		phase: payload.phase,
-		current: payload.current,
-		total: payload.total,
-		bytesDownloaded: payload.bytesDownloaded ?? 0,
-		totalBytes: payload.totalBytes ?? 0,
-		message: payload.message ?? undefined,
-	}
-	// Record a byte sample for throughput computation. Zero-byte samples
-	// (e.g. the initial fetching_pack event) are skipped so the first speed
-	// reading isn't diluted by setup overhead.
-	if (payload.bytesDownloaded > 0) {
-		recordSpeedSample(key, payload.bytesDownloaded)
-	}
-})
+const unlistenCfProgress = await cf_install_progress_listener(
+	(payload: CfInstallProgressPayload) => {
+		const key = `cf-${payload.projectId}`
+		// Ignore a straggler "finished" event that arrives after the install
+		// invoke already resolved and cleared the progress — it would
+		// otherwise re-populate state and wedge the button in its in-progress
+		// state.
+		if (payload.phase === 'finished' && !installing.value[key] && !updating.value[key]) {
+			return
+		}
+		installProgress.value[key] = {
+			phase: payload.phase,
+			current: payload.current,
+			total: payload.total,
+			bytesDownloaded: payload.bytesDownloaded ?? 0,
+			totalBytes: payload.totalBytes ?? 0,
+			message: payload.message ?? undefined,
+		}
+	},
+)
 
 const isDropdownOpen = ref(false)
 const dropdownRef = ref(null)
@@ -584,158 +515,14 @@ const selectModpack = (projectId) => {
 	}, 150)
 }
 
-// Opens every blocked mod's CurseForge page in the default browser, with a
-// small delay between each to avoid the OS/browser flagging it as popup spam.
-const openAllLinks = async () => {
-	const dialog = blockedModsDialog.value
-	if (!dialog || openingAll.value || unresolvedScanMods.value.length === 0) return
-	openingAll.value = true
-	try {
-		for (const mod of unresolvedScanMods.value) {
-			// Continue with the remaining links if one URL fails.
-			await openUrl(mod.websiteUrl).catch(() => {})
-			await new Promise((resolve) => setTimeout(resolve, 500))
-		}
-	} finally {
-		openingAll.value = false
-	}
-}
-
-// Scans the user's OS Downloads folder for files matching the blocked mods'
-// expected filenames and moves the matches into the instance's mods folder.
-// Only mods that are still pending/not_found are scanned each time, so
-// already-moved mods are never re-scanned and their statuses are preserved.
-const scanDownloadsAndMove = async () => {
-	const dialog = blockedModsDialog.value
-	if (!dialog || scanningDownloads.value || dialog.mods.length === 0) return
-	// Only scan mods that haven't been moved yet
-	const unresolved = dialog.mods.filter((mod) => {
-		const s = scanStatuses.value[mod.fileId]
-		return !s || s.status === 'pending' || s.status === 'not_found'
-	})
-	if (unresolved.length === 0) {
-		scanMessage.value = 'All mods have already been moved.'
-		return
-	}
-	scanningDownloads.value = true
-	scanMessage.value = null
-	try {
-		const result = await scan_downloads_for_blocked_mods(dialog.instanceId, unresolved)
-		// Don't resurrect the dialog if the user closed it mid-scan.
-		if (blockedModsDialog.value !== dialog) return
-		// Record the per-item outcome so each row shows moved/not-found/conflict.
-		// Already-moved entries keep their existing status (they weren't in the
-		// scan request, so they won't appear in result.items).
-		const statuses = { ...scanStatuses.value }
-		for (const item of result.items) {
-			statuses[item.fileId] = { status: item.status, destination: item.destination }
-		}
-		scanStatuses.value = statuses
-		scanMessage.value = buildScanSummary(result)
-		// All entries stay in the list so their per-item status badges are
-		// visible; unresolved ones keep their download links.
-	} catch (error) {
-		handleError(error)
-	} finally {
-		scanningDownloads.value = false
-	}
-}
-
-// Summarizes a scan result: how many files were moved and into which folders,
-// plus how many were replaced and how many still couldn't be found.
-const buildScanSummary = (result: BlockedModScanResult): string => {
-	if (result.moved === 0) return 'No matching files found in your Downloads folder.'
-	const byDest: Record<string, number> = {}
-	let conflicts = 0
-	let notFound = 0
-	for (const item of result.items) {
-		if (item.status === 'not_found') {
-			notFound += 1
-			continue
-		}
-		const key = item.destination ?? 'mods'
-		byDest[key] = (byDest[key] ?? 0) + 1
-		if (item.status === 'conflict') conflicts += 1
-	}
-	const parts = Object.entries(byDest).map(([dir, count]) => `${dir}/: ${count}`)
-	let summary = `Moved ${result.moved} file(s) — ${parts.join(', ')}`
-	if (conflicts > 0) summary += ` (${conflicts} replaced an existing file)`
-	if (notFound > 0) summary += `. ${notFound} still not found`
-	return summary
-}
-
-// Opens the blocked-mods dialog for a fresh install/update result, resetting
-// per-item scan statuses to "pending".
+// Opens the blocked-mods dialog for a fresh install/update result. The dialog
+// component owns the per-item scan statuses and reset them on mount.
 const showBlockedModsDialog = (
 	packTitle: string,
 	instanceId: string,
 	mods: CurseForgeBlockedMod[],
 ) => {
-	scanMessage.value = null
-	const statuses: Record<number, ScanStatusEntry> = {}
-	for (const mod of mods) {
-		statuses[mod.fileId] = { status: 'pending', destination: null }
-	}
-	scanStatuses.value = statuses
 	blockedModsDialog.value = { packTitle, instanceId, mods }
-}
-
-// Badge styling per scan status.
-const scanStatusClass = (status: ScanStatus) => {
-	switch (status) {
-		case 'moved':
-			return 'bg-emerald-500/20 text-emerald-300'
-		case 'conflict':
-			return 'bg-amber-500/20 text-amber-300'
-		case 'not_found':
-			return 'bg-red-500/20 text-red-300'
-		default:
-			return 'bg-white/10 text-gray-300'
-	}
-}
-
-// Formats bytes to a human-readable string (e.g. "1.2 GB", "142 MB", "24.5 KB").
-const formatBytes = (bytes: number): string => {
-	if (bytes <= 0) return '0 B'
-	const units = ['B', 'KB', 'MB', 'GB', 'TB']
-	const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
-	const val = bytes / Math.pow(1024, i)
-	return `${val < 10 ? val.toFixed(1) : val.toFixed(0)} ${units[i]}`
-}
-
-// Computes the current download speed as a human-readable string (e.g.
-// "24.5 MB/s") by averaging the bytes downloaded across the last ~2s of
-// samples — this reflects the true aggregate throughput even though events
-// arrive per-file from 12 concurrent downloads. Only meaningful while files
-// are actively downloading.
-const downloadSpeed = (projectId: string): string => {
-	const progress = installProgress.value[projectId]
-	if (!progress || progress.phase !== 'downloading_mods') return ''
-	const samples = speedSamples.value[projectId]
-	if (!samples || samples.length < 2) return ''
-	const first = samples[0]
-	const last = samples[samples.length - 1]
-	const elapsed = (last.time - first.time) / 1000
-	if (elapsed <= 0) return ''
-	const bytes = last.bytes - first.bytes
-	if (bytes <= 0) return ''
-	const bps = bytes / elapsed
-	return `${formatBytes(Math.round(bps))}/s`
-}
-
-
-// Human-readable badge label per scan status.
-const scanStatusLabel = (entry: ScanStatusEntry) => {
-	switch (entry.status) {
-		case 'moved':
-			return `Moved to ${entry.destination ?? 'mods'}/`
-		case 'conflict':
-			return `Replaced in ${entry.destination ?? 'mods'}/`
-		case 'not_found':
-			return 'Not found'
-		default:
-			return 'Pending'
-	}
 }
 
 const handleModpackSelection = (projectId) => {
@@ -749,8 +536,6 @@ const handleModpackSelection = (projectId) => {
 
 	selectModpack(projectId)
 }
-
-
 </script>
 
 <template>
@@ -781,86 +566,85 @@ const handleModpackSelection = (projectId) => {
 				<template v-else>
 					<div class="flex items-center gap-4">
 						<div ref="dropdownRef" class="relative">
-						<button
-							class="w-[435px] p-4 bg-raised rounded-lg flex items-center justify-between border border-[--brand-gradient-border] transition-all duration-200 ease-out hover:bg-[--color-button-bg] hover:shadow-lg active:scale-[0.98] relative overflow-hidden"
-							@click="isDropdownOpen = !isDropdownOpen"
-						>
-							<div v-if="selectedModpack" class="flex items-center gap-4">
-								<img
-									v-if="selectedModpack.icon_url"
-									:src="selectedModpack.icon_url"
-									class="w-8 h-8 rounded transition-transform duration-200 hover:scale-110"
-									:alt="selectedModpack.title"
-								/>
-								<span class="truncate max-w-[320px] transition-colors duration-200">{{
-									selectedModpack.title
-								}}</span>
-							</div>
-							<span v-else class="transition-colors duration-200">Select a modpack</span>
-							<svg
-								class="w-5 h-5 transition-all duration-200"
-								:class="{ 'rotate-180': isDropdownOpen }"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
+							<button
+								class="w-[435px] p-4 bg-raised rounded-lg flex items-center justify-between border border-[--brand-gradient-border] transition-all duration-200 ease-out hover:bg-[--color-button-bg] hover:shadow-lg active:scale-[0.98] relative overflow-hidden"
+								@click="isDropdownOpen = !isDropdownOpen"
 							>
-								<polyline points="6 9 12 15 18 9"></polyline>
-							</svg>
-						</button>
+								<div v-if="selectedModpack" class="flex items-center gap-4">
+									<img
+										v-if="selectedModpack.icon_url"
+										:src="selectedModpack.icon_url"
+										class="w-8 h-8 rounded transition-transform duration-200 hover:scale-110"
+										:alt="selectedModpack.title"
+									/>
+									<span class="truncate max-w-[320px] transition-colors duration-200">{{
+										selectedModpack.title
+									}}</span>
+								</div>
+								<span v-else class="transition-colors duration-200">Select a modpack</span>
+								<svg
+									class="w-5 h-5 transition-all duration-200"
+									:class="{ 'rotate-180': isDropdownOpen }"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+								>
+									<polyline points="6 9 12 15 18 9"></polyline>
+								</svg>
+							</button>
 
-						<!-- Dropdown content -->
-						<Transition
-							enter-active-class="transition-all duration-200 ease-out"
-							enter-from-class="opacity-0 transform scale-95 translate-y-2"
-							enter-to-class="opacity-100 transform scale-100 translate-y-0"
-							leave-active-class="transition-all duration-150 ease-in"
-							leave-from-class="opacity-100 transform scale-100 translate-y-0"
-							leave-to-class="opacity-0 transform scale-95 translate-y-2"
-						>
-							<div
-								v-if="isDropdownOpen"
-								class="absolute z-50 w-full bottom-full mb-2 bg-raised rounded-lg border border-[--brand-gradient-border] shadow-lg max-h-[60vh] overflow-y-auto"
+							<!-- Dropdown content -->
+							<Transition
+								enter-active-class="transition-all duration-200 ease-out"
+								enter-from-class="opacity-0 transform scale-95 translate-y-2"
+								enter-to-class="opacity-100 transform scale-100 translate-y-0"
+								leave-active-class="transition-all duration-150 ease-in"
+								leave-from-class="opacity-100 transform scale-100 translate-y-0"
+								leave-to-class="opacity-0 transform scale-95 translate-y-2"
 							>
-								<div class="p-2">
-									<TransitionGroup name="modpack-item" tag="div" appear>
-										<div
-											v-for="modpack in featuredModpacks"
-											:key="modpack.project_id"
-											:data-modpack-id="modpack.project_id"
-											class="p-4 rounded-lg cursor-pointer hover:bg-[--color-button-bg] mb-2 last:mb-0 transition-all duration-200 ease-out hover:scale-[1.02] hover:shadow-md"
-											:class="{
-												'bg-[--color-button-bg]': selectedModpackId === modpack.project_id,
-											}"
-											@click="handleModpackSelection(modpack.project_id)"
-										>
-											<div class="flex items-center gap-4">
-												<img
-													v-if="modpack.icon_url"
-													:src="modpack.icon_url"
-													class="w-12 h-12 rounded transition-transform duration-200"
-													:alt="modpack.title"
-												/>
-												<div class="flex-grow overflow-hidden">
-													<h3 class="text-lg font-bold m-0 truncate transition-colors duration-200">
-														{{ modpack.title }}
-													</h3>
-													<p
-														class="text-sm text-gray-500 m-0 truncate transition-colors duration-200"
-													>
-														{{ modpack.author }}
-													</p>
+								<div
+									v-if="isDropdownOpen"
+									class="absolute z-50 w-full bottom-full mb-2 bg-raised rounded-lg border border-[--brand-gradient-border] shadow-lg max-h-[60vh] overflow-y-auto"
+								>
+									<div class="p-2">
+										<TransitionGroup name="modpack-item" tag="div" appear>
+											<div
+												v-for="modpack in featuredModpacks"
+												:key="modpack.project_id"
+												:data-modpack-id="modpack.project_id"
+												class="p-4 rounded-lg cursor-pointer hover:bg-[--color-button-bg] mb-2 last:mb-0 transition-all duration-200 ease-out hover:scale-[1.02] hover:shadow-md"
+												:class="{
+													'bg-[--color-button-bg]': selectedModpackId === modpack.project_id,
+												}"
+												@click="handleModpackSelection(modpack.project_id)"
+											>
+												<div class="flex items-center gap-4">
+													<img
+														v-if="modpack.icon_url"
+														:src="modpack.icon_url"
+														class="w-12 h-12 rounded transition-transform duration-200"
+														:alt="modpack.title"
+													/>
+													<div class="flex-grow overflow-hidden">
+														<h3
+															class="text-lg font-bold m-0 truncate transition-colors duration-200"
+														>
+															{{ modpack.title }}
+														</h3>
+														<p
+															class="text-sm text-gray-500 m-0 truncate transition-colors duration-200"
+														>
+															{{ modpack.author }}
+														</p>
+													</div>
 												</div>
 											</div>
-										</div>
-
-									</TransitionGroup>
+										</TransitionGroup>
+									</div>
 								</div>
-							</div>
-						</Transition>
+							</Transition>
+						</div>
 					</div>
-				</div>
-
-
 
 					<!-- Action buttons -->
 					<Transition
@@ -872,16 +656,20 @@ const handleModpackSelection = (projectId) => {
 						leave-to-class="opacity-0 transform scale-95 translate-x-10"
 					>
 						<div v-if="selectedModpack" class="flex-shrink-0 !w-[300px]">
-							<template v-if="installed[selectedModpack.project_id] || updating[selectedModpack.project_id]">
+							<template
+								v-if="installed[selectedModpack.project_id] || updating[selectedModpack.project_id]"
+							>
 								<div class="tactile-button tactile-button--blue">
 									<ButtonStyled
 										size="2xlarge"
 										type="transparent"
 										class="!h-[64px] !w-[300px] !min-w-[300px]"
 									>
-									<button
-										:disabled="playing[selectedModpack.project_id] || updating[selectedModpack.project_id]"
-										class="flex flex-row items-center justify-center gap-3 !h-full !w-full text-xl font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+										<button
+											:disabled="
+												playing[selectedModpack.project_id] || updating[selectedModpack.project_id]
+											"
+											class="flex flex-row items-center justify-center gap-3 !h-full !w-full text-xl font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
 											@click="
 												selectedModpackHasUpdate
 													? updateModpack(selectedModpack.project_id)
@@ -900,7 +688,9 @@ const handleModpackSelection = (projectId) => {
 												</template>
 											</div>
 											<div class="text-center min-h-[1.5rem] flex items-center justify-center">
-												<template v-if="updating[selectedModpack.project_id]"> Updating... </template>
+												<template v-if="updating[selectedModpack.project_id]">
+													Updating...
+												</template>
 												<template v-else-if="selectedModpackHasUpdate"> Update </template>
 												<template v-else>
 													{{ playing[selectedModpack.project_id] ? 'Playing...' : 'Play' }}
@@ -918,25 +708,29 @@ const handleModpackSelection = (projectId) => {
 										class="!h-[64px] !w-[300px] !min-w-[300px]"
 									>
 										<button
-v-tooltip="
-													installed[selectedModpack.project_id]
-														? 'This project is already installed'
-														: null
+											v-tooltip="
+												installed[selectedModpack.project_id]
+													? 'This project is already installed'
+													: null
 											"
-										:disabled="isInstallInProgress(selectedModpack.project_id)"
-										class="flex flex-row items-center justify-center gap-3 !h-full !w-full text-xl font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
-										@click="install(selectedModpack.project_id)"
-									>
-										<div class="flex items-center justify-center w-8 h-8">
-											<DownloadIcon
-												v-if="!isInstallInProgress(selectedModpack.project_id)"
-												class="w-8 h-8"
-											/>
-											<SpinnerIcon v-else class="animate-spin w-5 h-5 shrink-0" />
-										</div>
-										<div class="text-center min-h-[1.5rem] flex items-center justify-center">
-											{{ isInstallInProgress(selectedModpack.project_id) ? 'Installing...' : 'Install' }}
-										</div>
+											:disabled="isInstallInProgress(selectedModpack.project_id)"
+											class="flex flex-row items-center justify-center gap-3 !h-full !w-full text-xl font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+											@click="install(selectedModpack.project_id)"
+										>
+											<div class="flex items-center justify-center w-8 h-8">
+												<DownloadIcon
+													v-if="!isInstallInProgress(selectedModpack.project_id)"
+													class="w-8 h-8"
+												/>
+												<SpinnerIcon v-else class="animate-spin w-5 h-5 shrink-0" />
+											</div>
+											<div class="text-center min-h-[1.5rem] flex items-center justify-center">
+												{{
+													isInstallInProgress(selectedModpack.project_id)
+														? 'Installing...'
+														: 'Install'
+												}}
+											</div>
 										</button>
 									</ButtonStyled>
 								</div>
@@ -952,172 +746,21 @@ v-tooltip="
 		</div>
 	</div>
 
-	<!-- Install progress modal -->
-	<Teleport to="body">
-		<Transition
-			enter-active-class="transition-all duration-200 ease-out"
-			enter-from-class="opacity-0"
-			enter-to-class="opacity-100"
-			leave-active-class="transition-all duration-150 ease-in"
-			leave-from-class="opacity-100"
-			leave-to-class="opacity-0"
-		>
-			<div
-				v-if="installModalVisible"
-				class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-			>
-				<div class="w-[480px] rounded-xl bg-raised p-6 border border-[--brand-gradient-border] shadow-2xl">
-					<div class="flex items-center gap-4 mb-4">
-						<img
-							v-if="installModalPack?.icon_url"
-							:src="installModalPack.icon_url"
-							class="w-12 h-12 rounded shrink-0"
-							:alt="installModalPack.title"
-						/>
-						<div class="min-w-0">
-							<h2 class="text-lg font-extrabold m-0 truncate">
-								{{ installModalPack?.title ?? 'Installing' }}
-							</h2>
-							<p class="text-sm text-gray-400 m-0 mt-0.5">
-								{{ installModalPhaseText }}
-							</p>
-						</div>
-						<SpinnerIcon class="animate-spin w-6 h-6 shrink-0 ml-auto text-[--color-brand]" />
-					</div>
+	<!-- Install progress modal (shared with the instance content tab) -->
+	<CurseForgeInstallProgressModal
+		:title="installModalPack?.title ?? 'Installing'"
+		:icon-url="installModalPack?.icon_url ?? null"
+		:progress="installModalProgress"
+	/>
 
-					<!-- Progress bar -->
-					<div class="h-2 w-full overflow-hidden rounded-full bg-[--color-button-bg]">
-						<div
-							class="h-full rounded-full transition-all duration-200 ease-out"
-							:style="{
-								width: installModalProgressPercent + '%',
-								background: 'linear-gradient(to right, var(--color-brand), var(--color-accent-light))',
-							}"
-						/>
-					</div>
-
-					<!-- Status text -->
-					<div class="mt-3 text-center">
-						<p class="m-0 text-sm font-semibold text-white/90 truncate" :title="installModalStatusText">
-							{{ installModalStatusText }}
-						</p>
-						<p class="m-0 mt-1 text-xs text-gray-400">
-							{{ installModalProgress ? `${installModalProgress.current} / ${installModalProgress.total} files` : '' }}
-						</p>
-					</div>
-				</div>
-			</div>
-		</Transition>
-	</Teleport>
-
-	<!-- Blocked mods dialog -->
-	<Teleport to="body">
-		<Transition
-			enter-active-class="transition-all duration-200 ease-out"
-			enter-from-class="opacity-0"
-			enter-to-class="opacity-100"
-			leave-active-class="transition-all duration-150 ease-in"
-			leave-from-class="opacity-100"
-			leave-to-class="opacity-0"
-		>
-			<div
-				v-if="blockedModsDialog"
-				class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-				@click.self="blockedModsDialog = null"
-			>
-				<div class="w-[560px] max-h-[80vh] overflow-y-auto rounded-xl bg-raised p-6 border border-[--brand-gradient-border] shadow-2xl">
-					<div class="flex items-start justify-between gap-4 mb-4">
-						<div>
-							<h2 class="text-xl font-extrabold m-0">Manual downloads required</h2>
-							<p class="text-sm text-gray-400 m-0 mt-1">
-								{{ blockedModsDialog.mods.length }} mod(s) in {{ blockedModsDialog.packTitle }} disallow
-								automated downloads and were skipped. Download them manually, then scan your Downloads
-								folder to move them into the instance.
-							</p>
-						</div>
-						<button
-							class="shrink-0 rounded-lg p-2 text-gray-400 transition-colors duration-150 hover:bg-[--color-button-bg] hover:text-white"
-							@click="blockedModsDialog = null"
-						>
-							<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-							</svg>
-						</button>
-					</div>
-
-					<div v-if="unresolvedScanMods.length > 0" class="flex gap-2 mb-3">
-						<button
-							class="flex-1 rounded-lg bg-[--color-button-bg] px-3 py-2 text-sm font-bold text-white transition-transform duration-150 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-							:disabled="openingAll"
-							@click="openAllLinks"
-						>
-							{{ openingAll ? 'Opening…' : `Open All (${unresolvedScanMods.length})` }}
-						</button>
-						<button
-							class="flex-1 rounded-lg bg-[--brand-gradient-from] px-3 py-2 text-sm font-bold text-white transition-transform duration-150 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-							:disabled="scanningDownloads"
-							@click="scanDownloadsAndMove"
-						>
-							{{ scanningDownloads ? 'Scanning…' : 'Scan Downloads & Move' }}
-						</button>
-					</div>
-
-					<p
-						v-if="scanMessage"
-						class="m-0 mb-3 rounded-lg bg-[--color-button-bg] px-3 py-2 text-sm font-semibold text-white"
-					>
-						{{ scanMessage }}
-					</p>
-
-					<ul class="flex flex-col gap-2 m-0 p-0 list-none">
-						<li
-							v-for="mod in blockedModsDialog.mods"
-							:key="`${mod.projectId}-${mod.fileId}`"
-							class="flex items-center justify-between gap-3 rounded-lg bg-[--color-button-bg] px-4 py-3"
-							:class="{
-								'opacity-60':
-									scanStatuses[mod.fileId]?.status === 'moved' ||
-									scanStatuses[mod.fileId]?.status === 'conflict',
-							}"
-						>
-							<div class="min-w-0">
-								<p class="m-0 truncate font-bold">{{ mod.name }}</p>
-								<p class="m-0 truncate text-xs text-gray-400">
-									Project {{ mod.projectId }} · File {{ mod.fileId }}
-								</p>
-							</div>
-							<div class="flex items-center gap-2 shrink-0">
-								<span
-									v-if="scanStatuses[mod.fileId]"
-									class="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold"
-									:class="scanStatusClass(scanStatuses[mod.fileId].status)"
-								>
-									{{ scanStatusLabel(scanStatuses[mod.fileId]) }}
-								</span>
-							<button
-								v-if="
-									scanStatuses[mod.fileId]?.status !== 'moved' &&
-									scanStatuses[mod.fileId]?.status !== 'conflict'
-								"
-								class="shrink-0 rounded-lg bg-[--brand-gradient-from] px-3 py-1.5 text-sm font-bold text-white transition-transform duration-150 active:scale-95"
-								@click="openUrl(mod.websiteUrl)"
-							>
-								Download from CurseForge
-							</button>
-						</div>
-						</li>
-					</ul>
-
-					<button
-						class="mt-4 w-full rounded-lg bg-[--color-button-bg] px-4 py-2 font-bold text-white transition-transform duration-150 active:scale-[0.98]"
-						@click="blockedModsDialog = null"
-					>
-						Done
-					</button>
-				</div>
-			</div>
-		</Transition>
-	</Teleport>
+	<!-- Blocked mods dialog (shared with the instance content tab) -->
+	<CurseForgeBlockedModsDialog
+		:open="!!blockedModsDialog"
+		:pack-title="blockedModsDialog?.packTitle ?? ''"
+		:instance-id="blockedModsDialog?.instanceId ?? ''"
+		:mods="blockedModsDialog?.mods ?? []"
+		@close="blockedModsDialog = null"
+	/>
 </template>
 
 <style scoped>
@@ -1260,6 +903,4 @@ img:hover {
 		transform: translate(-55%, -55%) rotate(90deg);
 	}
 }
-
-
 </style>

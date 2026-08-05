@@ -22,7 +22,7 @@
 					/>
 				</template>
 				<template #title>
-					{{ instance.name }}
+					<MinecraftText :text="instance.name" />
 				</template>
 				<template #stats>
 					<div class="flex items-center flex-wrap gap-2">
@@ -229,7 +229,6 @@
 							:installed="instance.install_stage !== 'installed'"
 							:is-server-instance="isServerInstance"
 							:open-settings="() => settingsModal?.show(1)"
-							v-bind="contentSubpageProps"
 							@play="updatePlayState"
 							@stop="() => stopInstance('InstanceSubpage')"
 						></component>
@@ -305,6 +304,7 @@ import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import ContextMenu from '@/components/ui/ContextMenu.vue'
+import MinecraftText from '@/components/ui/MinecraftText.vue'
 import InstanceSettingsModal from '@/components/ui/modal/InstanceSettingsModal.vue'
 import UpdateToPlayModal from '@/components/ui/modal/UpdateToPlayModal.vue'
 import {
@@ -317,7 +317,7 @@ import { get_project_v3 } from '@/helpers/cache.js'
 import { instance_listener, process_listener } from '@/helpers/events'
 import { install_existing_instance, install_pack_to_existing_instance } from '@/helpers/install'
 import { get, get_full_path, kill, run } from '@/helpers/instance'
-import { type InstanceContentData, loadInstanceContentData } from '@/helpers/instance-content'
+import { stripMinecraftCodes } from '@/helpers/minecraft-colors'
 import { get_by_instance_id } from '@/helpers/process'
 import type { GameInstance } from '@/helpers/types'
 import { createInstanceShortcut, showInstanceInFolder } from '@/helpers/utils.js'
@@ -339,8 +339,6 @@ const displayedInstanceRoute = shallowRef(router.currentRoute.value)
 const breadcrumbs = useBreadcrumbs()
 const themeStore = useTheming()
 const showInstancePlayTime = computed(() => themeStore.getFeatureFlag('show_instance_play_time'))
-const contentSubpageRouteNames = new Set(['Mods', 'ModsFilter'])
-
 const offline = ref(!navigator.onLine)
 window.addEventListener('offline', () => {
 	offline.value = true
@@ -350,7 +348,6 @@ window.addEventListener('online', () => {
 })
 
 const instance = ref<GameInstance>()
-const preloadedContent = ref<InstanceContentData | null>(null)
 const playing = ref(false)
 const loading = ref(false)
 const subpagePending = ref(false)
@@ -399,26 +396,24 @@ function resetServerStatus() {
 	loadingServerPing.value = false
 }
 
-function isContentSubpageRoute(routeName = displayedInstanceRoute.value.name) {
-	return typeof routeName === 'string' && contentSubpageRouteNames.has(routeName)
-}
-
 async function fetchInstance() {
 	isServerInstance.value = false
 	linkedProjectV3.value = undefined
-	preloadedContent.value = null
 	resetServerStatus()
 
 	const nextInstance = await get(route.params.id as string).catch(handleError)
 	let nextLinkedProjectV3: Labrinth.Projects.v3.Project | undefined
 	let nextIsServerInstance = false
 
-	const contentPreloadPromise =
-		nextInstance && isContentSubpageRoute()
-			? loadInstanceContentData(nextInstance.id, undefined, handleError)
-			: Promise.resolve(null)
+	// CurseForge packs (imported_modpack links with numeric project IDs) have
+	// no Modrinth project — skip the API lookup, which would 404 and waste a
+	// round-trip on every instance open.
+	const isCurseForgeLink =
+		nextInstance?.link?.type === 'imported_modpack' &&
+		!!nextInstance.link.project_id &&
+		!Number.isNaN(Number(nextInstance.link.project_id))
 
-	if (!offline.value && nextInstance?.link && nextInstance.link.project_id) {
+	if (!offline.value && !isCurseForgeLink && nextInstance?.link && nextInstance.link.project_id) {
 		try {
 			nextLinkedProjectV3 = await get_project_v3(nextInstance.link.project_id, 'must_revalidate')
 
@@ -430,12 +425,9 @@ async function fetchInstance() {
 		}
 	}
 
-	const nextPreloadedContent = await contentPreloadPromise
-
 	instance.value = nextInstance ?? undefined
 	linkedProjectV3.value = nextLinkedProjectV3
 	isServerInstance.value = nextIsServerInstance
-	preloadedContent.value = nextPreloadedContent
 	activeInstanceId.value = nextInstance?.id
 
 	fetchDeferredData(nextInstance?.id)
@@ -517,9 +509,6 @@ const renderMode = computed<'scroll' | 'fixed'>(() =>
 	displayedInstanceRoute.value.meta.renderMode === 'fixed' ? 'fixed' : 'scroll',
 )
 const isFixedRender = computed(() => renderMode.value === 'fixed')
-const contentSubpageProps = computed(() =>
-	isContentSubpageRoute() ? { preloadedContent: preloadedContent.value } : {},
-)
 
 const tabs = computed(() => [
 	{
@@ -545,14 +534,13 @@ const tabs = computed(() => [
 ])
 
 if (instance.value) {
+	const instanceName = stripMinecraftCodes(instance.value.name)
 	breadcrumbs.setName(
 		'Instance',
-		instance.value.name.length > 40
-			? instance.value.name.substring(0, 40) + '...'
-			: instance.value.name,
+		instanceName.length > 40 ? instanceName.substring(0, 40) + '...' : instanceName,
 	)
 	breadcrumbs.setContext({
-		name: instance.value.name,
+		name: instanceName,
 		link: displayedInstanceRoute.value.path,
 		query: displayedInstanceRoute.value.query,
 	})
@@ -628,7 +616,10 @@ const repairInstance = async () => {
 const createShortcut = async () => {
 	if (!instance.value) return
 	try {
-		const shortcutPath = await createInstanceShortcut(instance.value.name, instance.value.id)
+		const shortcutPath = await createInstanceShortcut(
+			stripMinecraftCodes(instance.value.name),
+			instance.value.id,
+		)
 		if (!shortcutPath) return
 
 		addNotification({

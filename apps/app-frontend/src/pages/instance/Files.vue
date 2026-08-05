@@ -29,6 +29,14 @@ import { get_full_path } from '@/helpers/instance'
 import type { GameInstance } from '@/helpers/types'
 import { highlightInFolder } from '@/helpers/utils'
 
+// The shared instance-tab interface (instance/Index.vue binds the full set to
+// every tab); declare all of it so nothing falls through to ReadyTransition,
+// which renders a fragment and would otherwise emit extraneous-attr warnings.
+defineEmits<{
+	play: [world: unknown]
+	stop: []
+}>()
+
 const props = defineProps<{
 	instance: GameInstance
 	options: unknown
@@ -36,6 +44,7 @@ const props = defineProps<{
 	playing: boolean
 	installed: boolean
 	isServerInstance: boolean
+	openSettings?: () => void
 }>()
 
 const { formatMessage } = useVIntl()

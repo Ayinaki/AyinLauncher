@@ -24,6 +24,7 @@ import type { Dayjs } from 'dayjs'
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import MinecraftText from '@/components/ui/MinecraftText.vue'
 import { trackEvent } from '@/helpers/analytics'
 import { get_project } from '@/helpers/cache'
 import { process_listener } from '@/helpers/events'
@@ -144,15 +145,11 @@ onUnmounted(() => {
 		<div
 			class="grid grid-cols-[auto_minmax(0,3fr)_minmax(0,4fr)_auto] items-center gap-2 p-3 bg-bg-raised card-shadow rounded-xl smart-clickable:highlight-on-hover"
 		>
-			<Avatar
-				:src="instanceIcon"
-				:tint-by="instance.id"
-				size="48px"
-			/>
+			<Avatar :src="instanceIcon" :tint-by="instance.id" size="48px" />
 			<div class="flex flex-col col-span-2 justify-between h-full">
 				<div class="flex items-center gap-2">
 					<div class="text-lg text-contrast font-bold truncate smart-clickable:underline-on-hover">
-						{{ instance.name }}
+						<MinecraftText :text="instance.name" />
 					</div>
 				</div>
 				<div class="flex items-center gap-2 text-sm text-secondary">

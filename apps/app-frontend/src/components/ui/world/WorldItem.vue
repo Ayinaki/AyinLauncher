@@ -41,6 +41,8 @@ import type { Component } from 'vue'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
+import MinecraftText from '@/components/ui/MinecraftText.vue'
+import { stripMinecraftCodes } from '@/helpers/minecraft-colors'
 import { copyToClipboard, createInstanceShortcut } from '@/helpers/utils'
 import type {
 	ProtocolVersion,
@@ -159,7 +161,7 @@ async function createShortcut() {
 
 	try {
 		const shortcutPath = await createInstanceShortcut(
-			props.world.name,
+			stripMinecraftCodes(props.world.name),
 			shortcutInstanceId.value,
 			props.world.type === 'server'
 				? { server: (props.world as ServerWorld).address }
@@ -284,7 +286,7 @@ const messages = defineMessages({
 			<div class="flex flex-col justify-between h-full">
 				<div class="flex items-center gap-2">
 					<div class="text-lg text-contrast font-bold truncate smart-clickable:underline-on-hover">
-						{{ world.name }}
+						<MinecraftText :text="world.name" />
 					</div>
 					<TagItem
 						v-if="managed"
@@ -346,7 +348,7 @@ const messages = defineMessages({
 									<template #popper>
 										<div class="flex flex-col gap-1">
 											<span v-for="player in serverStatus.players?.sample" :key="player.name">
-												{{ player.name }}
+												<MinecraftText :text="player.name" />
 											</span>
 										</div>
 									</template>
@@ -388,7 +390,7 @@ const messages = defineMessages({
 								:tint-by="instanceId"
 								class="shrink-0"
 							/>
-							<span class="truncate">{{ instanceName }}</span>
+							<span class="truncate"><MinecraftText :text="instanceName" /></span>
 						</router-link>
 					</template>
 				</div>

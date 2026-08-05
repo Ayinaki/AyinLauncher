@@ -4,6 +4,9 @@ import { Avatar, ButtonStyled, FormattedTag } from '@modrinth/ui'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { computed } from 'vue'
 
+import MinecraftText from '@/components/ui/MinecraftText.vue'
+import { stripMinecraftCodes } from '@/helpers/minecraft-colors'
+
 type Instance = {
 	game_version: string
 	loader: string
@@ -39,12 +42,12 @@ const getIconUrl = (path: string | null | undefined): string | undefined => {
 			<span class="flex items-center gap-2">
 				<Avatar
 					:src="getIconUrl(instance.icon_path)"
-					:alt="instance.name"
+					:alt="stripMinecraftCodes(instance.name)"
 					size="48px"
 				/>
 				<span class="flex flex-col gap-2">
 					<span class="font-extrabold bold text-contrast">
-						{{ instance.name }}
+						<MinecraftText :text="instance.name" />
 					</span>
 					<span class="text-secondary flex items-center gap-2 font-semibold">
 						<GameIcon class="h-5 w-5 text-secondary" />

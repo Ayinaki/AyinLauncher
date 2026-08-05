@@ -1,10 +1,6 @@
 <template>
 	<div class="flex gap-2 items-center">
-		<ButtonStyled
-			color="brand"
-			type="transparent"
-			circular
-		>
+		<ButtonStyled color="brand" type="transparent" circular>
 			<button v-tooltip="formatMessage(messages.createNewInstance)" @click="showCreationModal?.()">
 				<PlusIcon />
 			</button>
@@ -40,7 +36,7 @@
 						:to="`/instance/${encodeURIComponent(selectedProcess.instance.id)}`"
 						class="hover:underline"
 					>
-						{{ selectedProcess.instance.name }}
+						<MinecraftText :text="selectedProcess.instance.name" />
 					</router-link>
 					<Dropdown
 						v-if="currentProcesses.length > 1"
@@ -83,7 +79,7 @@
 									>
 										<OnlineIndicatorIcon />
 										<span class="mr-auto text-contrast flex items-center gap-2">
-											{{ process.instance.name }}
+											<MinecraftText :text="process.instance.name" />
 											<StarIcon v-if="process.uuid === selectedProcess.uuid" class="text-orange" />
 										</span>
 									</button>
@@ -155,6 +151,7 @@ import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AppUpdateButton from '@/components/ui/app-update-button/index.vue'
+import MinecraftText from '@/components/ui/MinecraftText.vue'
 import { useInstallJobNotifications } from '@/composables/browse/install-job-notifications'
 import { trackEvent } from '@/helpers/analytics'
 import { loading_listener, process_listener } from '@/helpers/events'

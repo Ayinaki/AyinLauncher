@@ -26,6 +26,7 @@ import HooksSettings from '@/components/ui/instance_settings/HooksSettings.vue'
 import InstallationSettings from '@/components/ui/instance_settings/InstallationSettings.vue'
 import JavaSettings from '@/components/ui/instance_settings/JavaSettings.vue'
 import WindowSettings from '@/components/ui/instance_settings/WindowSettings.vue'
+import MinecraftText from '@/components/ui/MinecraftText.vue'
 import { get_project_v3 } from '@/helpers/cache'
 import { get_linked_modpack_info } from '@/helpers/instance'
 import { get_loader_versions } from '@/helpers/metadata'
@@ -192,7 +193,7 @@ defineExpose({ show, hide })
 					size="24px"
 					:tint-by="props.instance.id"
 				/>
-				{{ instance.name }} <ChevronRightIcon />
+				<MinecraftText :text="instance.name" /> <ChevronRightIcon />
 				<span class="font-extrabold text-contrast">{{
 					formatMessage(commonMessages.settingsLabel)
 				}}</span>

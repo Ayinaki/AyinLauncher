@@ -479,6 +479,15 @@ async fn run_request(
                 modpack_details(&location),
             )
             .await?;
+            // Tag the bundled server entry with the modpack name so the entry
+            // reads e.g. "Ayin's Server <Modpack>". Prefer the pack's own
+            // title when the install location carries one (a user-renamed
+            // instance keeps the pack name in the entry); fall back to the
+            // instance name for file-based packs.
+            let pack_name = match &location {
+                CreatePackLocation::FromVersionId { title, .. } => Some(title.clone()),
+                CreatePackLocation::FromFile { .. } => None,
+            };
             install_pack(
                 job_id,
                 job_state,
@@ -490,7 +499,11 @@ async fn run_request(
             apply_post_install_edit(&instance_id, post_install_edit).await?;
             if let Some(instance) = crate::state::get_instance(&instance_id, &state.pool).await? {
                 let instance_full_path = state.directories.instances_dir().join(&instance.instance.path);
-                let _ = crate::api::worlds::servers::write_default(&instance_full_path).await;
+                let _ = crate::api::worlds::servers::write_default_with_name(
+                    &instance_full_path,
+                    pack_name.as_deref().or(Some(&instance.instance.name)),
+                )
+                .await;
             }
             Ok(Some(instance_id))
         }

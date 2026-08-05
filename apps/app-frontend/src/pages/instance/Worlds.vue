@@ -150,6 +150,7 @@ import WorldItem from '@/components/ui/world/WorldItem.vue'
 import { trackEvent } from '@/helpers/analytics'
 import { get_project, get_project_v3 } from '@/helpers/cache.js'
 import { instance_listener } from '@/helpers/events'
+import { stripMinecraftCodes } from '@/helpers/minecraft-colors'
 import { get_game_versions } from '@/helpers/tags'
 import type { GameInstance } from '@/helpers/types'
 import { ensureManagedServerWorldExists, getServerAddress } from '@/helpers/worlds'
@@ -240,6 +241,8 @@ const props = defineProps<{
 	offline: boolean
 	playing: boolean
 	installed: boolean
+	isServerInstance?: boolean
+	openSettings?: () => void
 }>()
 
 const instance = computed(() => props.instance)
@@ -624,7 +627,10 @@ watch(filterOptions, (options) => {
 
 const filteredWorlds = computed(() =>
 	dedupedWorlds.value.filter((x) => {
-		if (searchFilter.value && !x.name.toLowerCase().includes(searchFilter.value.toLowerCase())) {
+		if (
+			searchFilter.value &&
+			!stripMinecraftCodes(x.name).toLowerCase().includes(searchFilter.value.toLowerCase())
+		) {
 			return false
 		}
 

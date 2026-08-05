@@ -79,18 +79,15 @@ import WindowControls from '@/components/ui/WindowControls.vue'
 import { useCheckDisableMouseover } from '@/composables/macCssFix.js'
 import { config } from '@/config'
 import { hide_ads_window, init_ads_window, show_ads_window } from '@/helpers/ads.js'
-import { debugAnalytics, optInAnalytics, optOutAnalytics, trackEvent } from '@/helpers/analytics'
+import { optInAnalytics, optOutAnalytics, trackEvent } from '@/helpers/analytics'
 import { check_reachable } from '@/helpers/auth.js'
 import { get_user, get_version } from '@/helpers/cache.js'
 import {
-  command_listener,
-  minecraft_auth_signed_out_listener,
-  warning_listener,
+	command_listener,
+	minecraft_auth_signed_out_listener,
+	warning_listener,
 } from '@/helpers/events.js'
-import {
-  install_create_modpack_instance,
-  install_get_modpack_preview,
-} from '@/helpers/install'
+import { install_create_modpack_instance, install_get_modpack_preview } from '@/helpers/install'
 import { list, run } from '@/helpers/instance'
 import { cancelLogin, get as getCreds, login, logout } from '@/helpers/mr_auth.ts'
 import { mergeUrlQuery, parseModrinthLink } from '@/helpers/project-links.ts'
@@ -358,7 +355,6 @@ async function setupApp() {
 
 	if (telemetry) {
 		optInAnalytics()
-		if (dev) debugAnalytics()
 	} else {
 		optOutAnalytics()
 	}
@@ -388,11 +384,9 @@ async function setupApp() {
 				criticalErrorMessage.value = res
 			}
 		})
-		.catch(() => {
-			console.log(
-				`No critical announcement found at https://cdn.ayin.fun/appCriticalAnnouncement_${version}.json`,
-			)
-		})
+		// The announcement CDN is optional; failures (offline, DNS not set up) are
+		// expected and silent — nothing needs the console noise on every launch.
+		.catch(() => {})
 
 	get_opening_command().then(handleCommand)
 	fetchCredentials()
@@ -419,8 +413,6 @@ async function setupApp() {
 
 	if (osType === 'windows') {
 		await processPendingSurveys()
-	} else {
-		console.info('Skipping user surveys on non-Windows platforms')
 	}
 }
 
@@ -894,7 +886,6 @@ function showDelayedUpdatePopup() {
 
 async function checkUpdates() {
 	if (!(await areUpdatesEnabled())) {
-		console.log('Skipping update check as updates are disabled in this build or environment')
 		updatesEnabled.value = false
 
 		if (os.value === 'Linux' && !isDevEnvironment.value) {
@@ -907,14 +898,13 @@ async function checkUpdates() {
 	async function performCheck() {
 		const update = await invoke('plugin:updater|check')
 		if (!update) {
-			console.log('No update available')
+			// Runs every 5 minutes on launch; silence the routine "nothing new" path.
 			return
 		}
 
 		const isExistingUpdate = update.version === availableUpdate.value?.version
 
 		if (isExistingUpdate) {
-			console.log('Update is already known')
 			scheduleDelayedUpdatePopup()
 			return
 		}
@@ -1227,8 +1217,6 @@ async function processPendingSurveys() {
 
 	if (surveyToShow) {
 		availableSurvey.value = surveyToShow
-	} else {
-		console.info('No user survey to show')
 	}
 }
 
@@ -1305,16 +1293,24 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 			<suspense>
 				<QuickInstanceSwitcher />
 			</suspense>
-			<div class="flex flex-grow"></div>
-			<NavButton v-if="themeStore.featureFlags.news_feature" v-tooltip.right="'News'" :to="() => updatesModal?.show()">
-				<BellIcon />
-			</NavButton>
-			<NavButton
-				v-tooltip.right="formatMessage(commonMessages.settingsLabel)"
-				:to="() => $refs.settingsModal.show()"
-			>
-				<SettingsIcon />
-			</NavButton>
+			<!-- Sticky footer: stays pinned to the bottom of the visible nav
+			     column while the instance rail scrolls above it, so News and
+			     Settings are always reachable no matter how many instances. -->
+			<div class="app-grid-navbar-footer flex flex-col gap-[0.5rem] mt-auto">
+				<NavButton
+					v-if="themeStore.featureFlags.news_feature"
+					v-tooltip.right="'News'"
+					:to="() => updatesModal?.show()"
+				>
+					<BellIcon />
+				</NavButton>
+				<NavButton
+					v-tooltip.right="formatMessage(commonMessages.settingsLabel)"
+					:to="() => $refs.settingsModal.show()"
+				>
+					<SettingsIcon />
+				</NavButton>
+			</div>
 		</div>
 		<div data-tauri-drag-region class="app-grid-statusbar bg-bg-raised h-[--top-bar-height] flex">
 			<div data-tauri-drag-region class="flex min-w-0 flex-1 overflow-hidden p-3">
@@ -1417,7 +1413,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 						backgroundSize: 'cover',
 						backgroundPosition: 'center',
 						filter: 'blur(5px)',
-						transform: 'scale(1.05)'
+						transform: 'scale(1.05)',
 					}"
 				></div>
 				<div v-if="route.path !== '/'" class="backdrop-blur-md absolute inset-0"></div>
@@ -1465,7 +1461,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 					  Reliable page loading matters more than the fade; a plain CSS
 					  animation on the container provides the transition effect instead.
 					-->
-					<div class="route-container" :key="getTransitionKey(viewRoute)">
+					<div :key="getTransitionKey(viewRoute)" class="route-container">
 						<Suspense @pending="onSuspensePending" @resolve="onSuspenseResolve">
 							<template #fallback>
 								<div class="flex h-full w-full items-center justify-center">
@@ -1581,11 +1577,30 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 	background-color: var(--color-raised-bg);
 	height: 100vh;
 }
-
 .app-grid-navbar {
 	grid-area: nav;
 	position: relative;
 	z-index: 2;
+	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-width: none;
+	padding-bottom: 0.5rem;
+
+	&::-webkit-scrollbar {
+		display: none;
+	}
+
+	/* Sticky footer: pinned to the bottom of the visible nav column (flush
+	   with the window edge — the -0.5rem eats the navbar's bottom padding so
+	   the icon centers exactly where the old static footer did) while the
+	   instance rail scrolls above it. */
+	.app-grid-navbar-footer {
+		position: sticky;
+		bottom: -0.5rem;
+		z-index: 4;
+		padding-top: 0.25rem;
+		background: var(--surface-3);
+	}
 }
 
 .app-grid-statusbar {
@@ -1612,7 +1627,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 
 	display: grid;
 	grid-template-columns: 1fr 0px;
-	// transition: grid-template-columns 0.4s ease-in-out;
 
 	&.sidebar-enabled {
 		grid-template-columns: 1fr 300px;
@@ -1793,7 +1807,6 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 		transform: translateY(0);
 	}
 }
-
 
 @media (prefers-reduced-motion: no-preference) {
 	.nav-button-animated-enter-active {

@@ -76,6 +76,7 @@ pub(crate) async fn get_content_projects(
         cache_behaviour,
         state,
         ContentFilter::All,
+        false,
     )
     .await
 }
@@ -240,9 +241,14 @@ pub(crate) async fn list_content(
     } else {
         ContentFilter::All
     };
-    let files =
-        content_projects_for_scope(&resolved, cache_behaviour, state, filter)
-            .await?;
+    let files = content_projects_for_scope(
+        &resolved,
+        cache_behaviour,
+        state,
+        filter,
+        imported_modpack_scope,
+    )
+    .await?;
     let files = files.into_iter().collect::<Vec<_>>();
 
     content_files_to_content_items(
@@ -281,6 +287,7 @@ pub(crate) async fn list_linked_modpack_content(
                 include_untracked: resolved.instance.install_stage
                     != crate::state::InstanceInstallStage::Installed,
             },
+            true,
         )
         .await?;
         let files = files.into_iter().collect::<Vec<_>>();
@@ -316,6 +323,7 @@ pub(crate) async fn list_linked_modpack_content(
         cache_behaviour,
         state,
         ContentFilter::OnlyModpack(&ids),
+        false,
     )
     .await?;
     let files = files.into_iter().collect::<Vec<_>>();
@@ -599,6 +607,7 @@ async fn content_projects_for_scope(
     cache_behaviour: Option<CacheBehaviour>,
     state: &State,
     filter: ContentFilter<'_>,
+    skip_update_checks: bool,
 ) -> crate::Result<DashMap<String, ContentFile>> {
     let files = sync_instance_content_files(&resolved.instance, state).await?;
     let entries = sqlite::content_rows::get_content_entries(
@@ -627,47 +636,55 @@ async fn content_projects_for_scope(
         .into_iter()
         .map(|file| (file.hash.clone(), file))
         .collect::<HashMap<_, _>>();
-    let installed_channels = get_installed_update_channels(
-        &file_info_by_hash,
-        cache_behaviour,
-        &state.pool,
-        &state.api_semaphore,
-    )
-    .await?;
-    let update_keys = files
-        .iter()
-        .filter(|file| file_info_by_hash.contains_key(&file.sha1))
-        .filter_map(|file| {
-            let project_type = project_type_for_file(file)?;
-            let channel = resolved.instance.update_channel.least_stable(
-                installed_channels
-                    .get(&file.sha1)
-                    .copied()
-                    .unwrap_or(resolved.instance.update_channel),
-            );
-            Some(file_update_cache_key(
-                &file.sha1,
-                project_type,
-                &resolved.content_set,
-                channel,
-            ))
-        })
-        .collect::<Vec<_>>();
-    let update_key_refs =
-        update_keys.iter().map(String::as_str).collect::<Vec<_>>();
-    let file_updates = CachedEntry::get_file_update_many(
-        &update_key_refs,
-        cache_behaviour,
-        &state.pool,
-        &state.api_semaphore,
-    )
-    .await?;
+    // Individual Modrinth update checks. Skipped for imported modpacks
+    // (CurseForge catalog packs / local imports): their mods are pinned by the
+    // pack, so per-mod Modrinth updates would desync the pack — the pack
+    // version picker is the update path instead. This also skips the
+    // update-many endpoint, which is by far the slowest call in this flow and
+    // a big part of slow Content-tab opens on large packs.
     let mut updates_by_hash: HashMap<String, Vec<String>> = HashMap::new();
-    for update in file_updates {
-        updates_by_hash
-            .entry(update.hash)
-            .or_default()
-            .push(update.update_version_id);
+    if !skip_update_checks {
+        let installed_channels = get_installed_update_channels(
+            &file_info_by_hash,
+            cache_behaviour,
+            &state.pool,
+            &state.api_semaphore,
+        )
+        .await?;
+        let update_keys = files
+            .iter()
+            .filter(|file| file_info_by_hash.contains_key(&file.sha1))
+            .filter_map(|file| {
+                let project_type = project_type_for_file(file)?;
+                let channel = resolved.instance.update_channel.least_stable(
+                    installed_channels
+                        .get(&file.sha1)
+                        .copied()
+                        .unwrap_or(resolved.instance.update_channel),
+                );
+                Some(file_update_cache_key(
+                    &file.sha1,
+                    project_type,
+                    &resolved.content_set,
+                    channel,
+                ))
+            })
+            .collect::<Vec<_>>();
+        let update_key_refs =
+            update_keys.iter().map(String::as_str).collect::<Vec<_>>();
+        let file_updates = CachedEntry::get_file_update_many(
+            &update_key_refs,
+            cache_behaviour,
+            &state.pool,
+            &state.api_semaphore,
+        )
+        .await?;
+        for update in file_updates {
+            updates_by_hash
+                .entry(update.hash)
+                .or_default()
+                .push(update.update_version_id);
+        }
     }
     let output = DashMap::new();
 

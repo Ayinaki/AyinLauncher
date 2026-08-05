@@ -53,11 +53,6 @@ export const initAnalytics = () => {
 	initialized = true
 }
 
-export const debugAnalytics = () => {
-	if (!initialized) return
-	posthog.debug()
-}
-
 export const optOutAnalytics = () => {
 	if (!initialized) return
 	posthog.opt_out_capturing()

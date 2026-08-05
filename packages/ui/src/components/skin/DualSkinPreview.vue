@@ -33,11 +33,7 @@
 			<TresGroup
 				:position="[left.x + impulses.left.clickImpulseOffsetX.value, left.y, left.z]"
 				:rotation="[0, left.ry, impulses.left.clickImpulseRotationZ.value]"
-				:scale="[
-					impulses.left.clickImpulseScaleX.value,
-					impulses.left.clickImpulseScaleY.value,
-					1,
-				]"
+				:scale="[impulses.left.clickImpulseScaleX.value, impulses.left.clickImpulseScaleY.value, 1]"
 			>
 				<primitive v-if="leftScene" :object="leftScene" />
 			</TresGroup>
@@ -221,8 +217,12 @@ for (const [path, json] of Object.entries(emoteFiles)) {
 const clipNames = [...MODEL_CLIPS, ...Object.keys(emoteClips).sort()]
 const selectedAnim = ref('idle')
 
-const leftModelSrc = computed(() => props.leftModel === 'SLIM' ? SlimPlayerModel : ClassicPlayerModel)
-const rightModelSrc = computed(() => props.rightModel === 'SLIM' ? SlimPlayerModel : ClassicPlayerModel)
+const leftModelSrc = computed(() =>
+	props.leftModel === 'SLIM' ? SlimPlayerModel : ClassicPlayerModel,
+)
+const rightModelSrc = computed(() =>
+	props.rightModel === 'SLIM' ? SlimPlayerModel : ClassicPlayerModel,
+)
 const noCape = computed<string | undefined>(() => undefined)
 
 type Rig = {
@@ -287,11 +287,11 @@ function setScene(s: { left: Placement; right: Placement }) {
 	Object.assign(rightTarget, s.right)
 }
 
-function playScene(s: Scene) {
-	playOn('left', s.name)
+function playScene(s: Scene, once = false) {
+	playOn('left', s.name, 0, once)
 	// Stagger: the right character trails by half the clip so one leads.
 	const clip = rigs.right?.clips[s.name]
-	playOn('right', s.name, s.stagger ? (clip ? clip.duration / 2 : 0.8) : 0)
+	playOn('right', s.name, s.stagger ? (clip ? clip.duration / 2 : 0.8) : 0, once)
 }
 
 function weightedPick(list: Scene[]): Scene {
@@ -349,7 +349,12 @@ function runEvent() {
 	window.clearTimeout(returnTimer.right)
 	const scene = weightedPick(INTERACTIONS)
 	setScene(scene)
-	playScene(scene)
+	// Play the emote as a single pass (LoopOnce + clamp) rather than looping:
+	// with LoopRepeat the hold (1.5x clip length) always outlives one loop, so
+	// looping emotes visibly restart and then get cut mid-motion — e.g. Naruto's
+	// 3s clip restarts at 3s and is cut at the 4.5s hold. Playing once ends the
+	// emote at its natural last frame and lets the hold show a clean held pose.
+	playScene(scene, true)
 	const clip = rigs.left?.clips[scene.name]
 	const hold = Math.max(4000, (clip ? clip.duration * 1000 : 4000) * 1.5)
 	eventTimer = window.setTimeout(() => {

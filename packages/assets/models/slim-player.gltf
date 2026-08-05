@@ -1385,11 +1385,11 @@
 	"images": [
 		{
 			"name": "sunny.png",
-			"uri": "sunny.png"
+			"uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
 		},
 		{
 			"name": "cape",
-			"uri": "cape"
+			"uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
 		}
 	],
 	"samplers": [{}],

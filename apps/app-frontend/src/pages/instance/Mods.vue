@@ -59,6 +59,18 @@
 					@version-select="handleVersionSelect"
 					@version-hover="handleVersionHover"
 				/>
+				<CurseForgeInstallProgressModal
+					:title="displayedModpackProject?.title ?? instance.name"
+					:icon-url="instance.icon_path ? convertFileSrc(instance.icon_path) : null"
+					:progress="switchProgress"
+				/>
+				<CurseForgeBlockedModsDialog
+					:open="!!blockedModsDialog"
+					:pack-title="blockedModsDialog?.packTitle ?? ''"
+					:instance-id="blockedModsDialog?.instanceId ?? ''"
+					:mods="blockedModsDialog?.mods ?? []"
+					@close="blockedModsDialog = null"
+				/>
 			</template>
 		</ContentPageLayout>
 	</ReadyTransition>
@@ -99,16 +111,22 @@ import { openUrl } from '@tauri-apps/plugin-opener'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
+import CurseForgeBlockedModsDialog from '@/components/ui/CurseForgeBlockedModsDialog.vue'
+import CurseForgeInstallProgressModal, {
+	type CfInstallProgressView,
+} from '@/components/ui/CurseForgeInstallProgressModal.vue'
 import ShareModalWrapper from '@/components/ui/modal/ShareModalWrapper.vue'
 import { trackEvent } from '@/helpers/analytics'
 import { get_project_versions, get_version, get_version_many } from '@/helpers/cache.js'
 import {
+	cf_install_progress_listener,
 	instance_bulk_update_progress_listener,
 	instance_listener,
 	type InstanceBulkUpdateProgress,
 } from '@/helpers/events.js'
 import {
 	change_curseforge_pack_version,
+	type CurseForgeBlockedMod,
 	type CurseForgePackFileInfo,
 	get_curseforge_pack_files,
 	install_duplicate_instance,
@@ -172,11 +190,6 @@ const messages = defineMessages({
 		id: 'app.instance.mods.cf-version-changed',
 		defaultMessage: 'Modpack version changed',
 	},
-	cfBlockedModsNotification: {
-		id: 'app.instance.mods.cf-blocked-mods',
-		defaultMessage:
-			'{count} mod(s) disallow automated downloads and were skipped. Install them manually from CurseForge.',
-	},
 })
 
 let savedModalState: ModpackContentModalState | null = null
@@ -193,18 +206,28 @@ const skipNonEssentialWarnings = computed(() =>
 	themeStore.getFeatureFlag('skip_non_essential_warnings'),
 )
 
-const props = defineProps<{
-	instance: GameInstance
-	isServerInstance?: boolean
-	openSettings?: () => void
-	preloadedContent?: InstanceContentData | null
+// The shared instance-tab interface (instance/Index.vue binds the full set to
+// every tab); declare all of it so nothing falls through to ReadyTransition,
+// which renders a fragment and would otherwise emit extraneous-attr warnings.
+defineEmits<{
+	play: [world: unknown]
+	stop: []
 }>()
 
-function hasPreloadedContent(contentData: InstanceContentData | null | undefined) {
-	return contentData?.path === props.instance.id
-}
+const props = defineProps<{
+	instance: GameInstance
+	options: unknown
+	offline: boolean
+	playing: boolean
+	installed: boolean
+	isServerInstance?: boolean
+	openSettings?: () => void
+}>()
 
-const loading = ref(!hasPreloadedContent(props.preloadedContent))
+// The Content tab always loads its own data (it no longer receives a
+// preloaded snapshot from the instance page — the page header renders
+// instantly instead of blocking on the content load).
+const loading = ref(true)
 const projects = ref<ContentItem[]>([])
 
 const installingBuffer = ref<ContentItem[]>([])
@@ -311,8 +334,27 @@ const cfModpackVersionsLoading = ref(false)
 const cfModpackVersionsError = ref<string | null>(null)
 const cfModpackLatestFileId = ref<number | null>(null)
 const cfModpackSwitching = ref(false)
+// Live install progress for an in-flight version change, shown in a modal.
+const switchProgress = ref<CfInstallProgressView | null>(null)
+// Blocked mods found by a version change, shown in the manual-download dialog.
+const blockedModsDialog = ref<{
+	packTitle: string
+	instanceId: string
+	mods: CurseForgeBlockedMod[]
+} | null>(null)
 // Guards against out-of-order responses if version_id changes mid-flight.
 let cfVersionRequestSeq = 0
+
+// Payload of the backend `cf_install_progress` event.
+interface CfInstallProgressPayload {
+	projectId: number
+	phase: string
+	current: number
+	total: number
+	bytesDownloaded: number
+	totalBytes: number
+	message: string | null
+}
 
 function mapCfFileToVersionOption(file: CurseForgePackFileInfo): ContentModpackVersionOption {
 	return {
@@ -362,20 +404,35 @@ const cfModpackInstalledVersionId = computed(() => {
 async function handleChangeCfModpackVersion(fileId: number) {
 	if (cfModpackSwitching.value || fileId === cfModpackInstalledVersionId.value) return
 	cfModpackSwitching.value = true
+	switchProgress.value = {
+		current: 0,
+		total: 1,
+		bytesDownloaded: 0,
+		totalBytes: 0,
+		message: 'Starting…',
+	}
 	try {
 		const result = await change_curseforge_pack_version(props.instance.id, fileId)
-		if (result.blockedMods.length > 0) {
-			addNotification({
-				type: 'warning',
-				title: formatMessage(messages.cfVersionChanged),
-				text: formatMessage(messages.cfBlockedModsNotification, {
-					count: result.blockedMods.length,
-				}),
-			})
-		}
+		switchProgress.value = null
 		await loadCfModpackVersions()
 		await refreshContentState('must_revalidate')
+
+		if (result.blockedMods.length > 0) {
+			// Surface the actual manual-download list (links + scan) instead of
+			// only a count notification, so the user knows which mods to get.
+			blockedModsDialog.value = {
+				packTitle: displayedModpackProject.value?.title ?? props.instance.name,
+				instanceId: result.instanceId,
+				mods: result.blockedMods,
+			}
+		} else {
+			addNotification({
+				type: 'success',
+				title: formatMessage(messages.cfVersionChanged),
+			})
+		}
 	} catch (err) {
+		switchProgress.value = null
 		handleError(err as Error)
 	} finally {
 		cfModpackSwitching.value = false
@@ -1420,9 +1477,7 @@ provideContentManager({
 
 		return null
 	}),
-	modpackVersions: computed(() =>
-		isCurseForgePack.value ? cfModpackVersions.value : null,
-	),
+	modpackVersions: computed(() => (isCurseForgePack.value ? cfModpackVersions.value : null)),
 	modpackVersionsLoading: cfModpackVersionsLoading,
 	modpackVersionsError: cfModpackVersionsError,
 	modpackVersionsBusy: cfModpackSwitching,
@@ -1512,10 +1567,6 @@ function loadInitialContent() {
 		return initProjects('must_revalidate')
 	}
 
-	if (props.preloadedContent && applyContentData(props.preloadedContent)) {
-		return Promise.resolve()
-	}
-
 	return initProjects()
 }
 
@@ -1537,6 +1588,7 @@ const removeBeforeEach = router.beforeEach(() => {
 let isUnmounted = false
 let unlistenDragDrop: UnlistenFn | null = null
 let unlistenInstances: UnlistenFn | null = null
+let unlistenCfProgress: UnlistenFn | null = null
 
 onMounted(() => {
 	void getCurrentWebview()
@@ -1579,6 +1631,33 @@ onMounted(() => {
 			unlistenInstances = unlisten
 		})
 		.catch(handleError)
+
+	cf_install_progress_listener((payload: CfInstallProgressPayload) => {
+		// Only track progress for this instance's pack — events for other
+		// installs (e.g. from the Home page) are ignored.
+		if (String(payload.projectId) !== props.instance?.link?.project_id) return
+		// Drop a straggler "finished" event that arrives after the invoke
+		// already resolved — it would otherwise re-open the modal with nothing
+		// left to close it.
+		if (payload.phase === 'finished' && !cfModpackSwitching.value) return
+		switchProgress.value = {
+			phase: payload.phase,
+			current: payload.current,
+			total: payload.total,
+			bytesDownloaded: payload.bytesDownloaded ?? 0,
+			totalBytes: payload.totalBytes ?? 0,
+			message: payload.message ?? undefined,
+		}
+	})
+		.then((unlisten) => {
+			if (isUnmounted) {
+				unlisten()
+				return
+			}
+
+			unlistenCfProgress = unlisten
+		})
+		.catch(handleError)
 })
 
 watch(
@@ -1615,5 +1694,6 @@ onUnmounted(() => {
 	removeBeforeEach()
 	unlistenDragDrop?.()
 	unlistenInstances?.()
+	unlistenCfProgress?.()
 })
 </script>

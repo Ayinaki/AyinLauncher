@@ -11,6 +11,7 @@ import {
 } from '@modrinth/ui'
 import { computed, ref } from 'vue'
 
+import MinecraftText from '@/components/ui/MinecraftText.vue'
 import ModalWrapper from '@/components/ui/modal/ModalWrapper.vue'
 import HideFromHomeOption from '@/components/ui/world/modal/HideFromHomeOption.vue'
 import type { GameInstance } from '@/helpers/types'
@@ -97,7 +98,7 @@ const messages = defineMessages({
 	<ModalWrapper ref="modal">
 		<template #title>
 			<Avatar :src="removeIcon || !icon ? undefined : icon" size="24px" />
-			{{ instance.name }} <ChevronRightIcon />
+			<MinecraftText :text="instance.name" /> <ChevronRightIcon />
 			<span class="font-extrabold text-lg text-contrast">{{ formatMessage(messages.title) }}</span>
 		</template>
 		<div class="w-[450px]">

@@ -914,11 +914,27 @@ pub mod servers {
     }
 
     pub async fn write_default(instance_dir: &Path) -> Result<()> {
+        write_default_with_name(instance_dir, None).await
+    }
+
+    /// Writes the bundled Ayin server entry, optionally appending the
+    /// installed modpack's name to the display name (e.g. "Ayin's Server
+    /// RLCraft") so players can tell which pack a server entry belongs to.
+    pub async fn write_default_with_name(
+        instance_dir: &Path,
+        modpack_name: Option<&str>,
+    ) -> Result<()> {
+        let name = match modpack_name.map(str::trim) {
+            Some(suffix) if !suffix.is_empty() => {
+                format!("Ayin's Server {suffix}")
+            }
+            _ => "Ayin's Server".to_string(),
+        };
         let default_server = ServerData {
             hidden: false,
             icon: None,
             ip: "ayinaki.duckdns.org:25565".to_string(),
-            name: "Ayin's Server".to_string(),
+            name,
             accept_textures: Some(true),
         };
         write(instance_dir, &[default_server]).await

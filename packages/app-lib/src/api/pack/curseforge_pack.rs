@@ -8,6 +8,8 @@ use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+use crate::event::InstancePayloadType;
+use crate::event::emit::emit_instance;
 use crate::launcher_user_agent;
 use crate::state::{EditInstance, InstanceLink, ModLoader, State};
 use crate::util::fetch::REQWEST_CLIENT;
@@ -57,9 +59,10 @@ pub fn curseforge_api_key() -> crate::Result<String> {
     }
 
     Err(crate::Error::from(crate::ErrorKind::InputError(
-        "CURSEFORGE_API_KEY is not set. TODO: configure the CurseForge API key via the \
-         CURSEFORGE_API_KEY environment variable, or a gitignored .env file at the \
-         repository root (or in the app's working directory)."
+        "CURSEFORGE_API_KEY is not set. Configure the CurseForge API key via the \
+         CURSEFORGE_API_KEY environment variable, a gitignored .env file at the \
+         repository root (or in the app's working directory), or build the app \
+         with CURSEFORGE_API_KEY set so it is embedded at compile time."
             .to_string(),
     )))
 }
@@ -555,12 +558,26 @@ async fn fetch_pack_files(
     }
 }
 
+/// Picks the best available artwork URL for a CurseForge mod. The API
+/// sometimes returns an empty `thumbnailUrl` string (rather than `null`) while
+/// still providing the full-size `url` (e.g. Beyond Depth), so a plain
+/// `.or()` fallback is not enough — the first *non-empty* value wins.
+fn cf_logo_icon_url(logo: &CfModLogo) -> Option<&str> {
+    logo
+        .thumbnail_url
+        .as_deref()
+        .filter(|url| !url.trim().is_empty())
+        .or_else(|| logo.url.as_deref().filter(|url| !url.trim().is_empty()))
+}
+
 /// Downloads the CurseForge pack logo and caches it as the instance icon,
 /// following the same icon-handling convention as Modrinth imports
 /// (`write_cached_icon` into the caches dir, then `edit_icon`). Best-effort:
 /// icon failures are silently ignored and never abort an install.
 async fn set_cf_instance_icon(instance_id: &str, icon_url: Option<&str>) {
-    let Some(icon_url) = icon_url else { return };
+    let Some(icon_url) = icon_url.filter(|url| !url.trim().is_empty()) else {
+        return;
+    };
     let Ok(state) = State::get().await else {
         return;
     };
@@ -811,6 +828,58 @@ fn enrich_blocked_mods(blocked_mods: &mut [BlockedMod], mod_meta: &HashMap<u32, 
             }
         }
     }
+}
+
+/// Returns true when the file at `path` already satisfies the expected
+/// content: an exact hash match when a hash is known, otherwise an exact size
+/// match when the size is known. With neither available, returns false so the
+/// file is always re-downloaded (the safe default).
+///
+/// This makes version changes and reinstalls incremental: files that are
+/// already on disk and correct are skipped instead of re-downloaded, and
+/// blocked mods the user already moved in manually are not re-listed.
+async fn file_already_satisfied(
+    path: &std::path::Path,
+    expected_size: Option<u64>,
+    hash_type: Option<&str>,
+    expected_hash: Option<&str>,
+) -> bool {
+    if !path.is_file() {
+        return false;
+    }
+    // Cheap rejection before hashing: when the expected size is known and
+    // already differs, the file is not the one we want.
+    if let Some(size) = expected_size {
+        if size > 0
+            && tokio::fs::metadata(path)
+                .await
+                .map(|meta| meta.len() != size)
+                .unwrap_or(true)
+        {
+            return false;
+        }
+    }
+    if let (Some(hash_type), Some(expected)) = (hash_type, expected_hash) {
+        let Ok(bytes) = tokio::fs::read(path).await else {
+            return false;
+        };
+        let computed = match hash_type {
+            "sha1" => sha1_smol::Sha1::from(&bytes).digest().to_string(),
+            "md5" => compute_md5(&bytes),
+            _ => return false,
+        };
+        return computed.eq_ignore_ascii_case(expected);
+    }
+    if let Some(size) = expected_size {
+        if size == 0 {
+            return false;
+        }
+        return tokio::fs::metadata(path)
+            .await
+            .map(|meta| meta.len() == size)
+            .unwrap_or(false);
+    }
+    false
 }
 
 /// Computes MD5 digest for data and returns hex string.
@@ -1066,14 +1135,21 @@ pub async fn install_curseforge_catalog_pack(
         (instance_id, instance_dir, false)
     };
 
+    // Tag the bundled Ayin server entry with the modpack name (e.g. "Ayin's
+    // Server All the Mods 11") so players can tell which pack the entry
+    // belongs to. Overwrites the plain servers.dat written at instance
+    // creation time; on updates this re-tags with the current pack name.
+    let _ = crate::api::worlds::servers::write_default_with_name(
+        &instance_dir,
+        Some(&pack_name),
+    )
+    .await;
+
     // Set the pack artwork as the instance icon (best-effort) so the sidebar
     // shows the real logo instead of the default/blank icon.
     set_cf_instance_icon(
         &instance_id,
-        cf_mod
-            .logo
-            .as_ref()
-            .and_then(|logo| logo.thumbnail_url.as_deref()),
+        cf_mod.logo.as_ref().and_then(cf_logo_icon_url),
     )
     .await;
 
@@ -1307,6 +1383,52 @@ pub async fn install_curseforge_catalog_pack(
             let bytes_downloaded = std::sync::Arc::clone(&bytes_downloaded);
             let total_bytes = std::sync::Arc::clone(&total_bytes);
             async move {
+                let file_name = pm.file_name.clone().unwrap_or_else(|| format!("mod-{}-{}.jar", pm.project_id, pm.file_id));
+                let file_name_display = file_name.clone();
+                // Route via the shared resolver — single source of truth.
+                let target_dir = match resolve_content_dir(
+                    pm.class_id,
+                    mod_meta.get(&pm.project_id).and_then(|m| m.class_id),
+                    Some(&file_name),
+                ) {
+                    CfContentDir::ResourcePacks => resourcepacks_dir,
+                    CfContentDir::ShaderPacks => shaderpacks_dir,
+                    CfContentDir::Mods => mods_dir,
+                };
+                let file_path = target_dir.join(&file_name);
+
+                // Incremental installs: skip files that are already on disk and
+                // correct (hash or size match). This also covers blocked mods
+                // the user already moved in manually, so a version change
+                // doesn't re-prompt for them.
+                if file_already_satisfied(
+                    &file_path,
+                    pm.file_length,
+                    pm.hash_type,
+                    pm.hash_value.as_deref(),
+                )
+                .await
+                {
+                    let completed = downloaded.fetch_add(1, Ordering::SeqCst) + 1;
+                    if !pm.blocked {
+                        if let Some(len) = pm.file_length {
+                            bytes_downloaded.fetch_add(len, Ordering::SeqCst);
+                        }
+                    }
+                    let cur_bytes = bytes_downloaded.load(Ordering::SeqCst);
+                    emit_cf_install_progress(CfInstallProgress {
+                        project_id,
+                        phase: "downloading_mods".to_string(),
+                        current: completed,
+                        total: total_files,
+                        bytes_downloaded: cur_bytes,
+                        total_bytes: total_bytes.load(Ordering::SeqCst),
+                        message: Some(format!("Already present: {file_name_display}")),
+                    })
+                    .await;
+                    return Ok(None);
+                }
+
                 if pm.blocked {
                     let bm = construct_blocked_mod(
                         pm.project_id,
@@ -1332,8 +1454,6 @@ pub async fn install_curseforge_catalog_pack(
                         )));
                     }
                 };
-                let file_name = pm.file_name.clone().unwrap_or_else(|| format!("mod-{}-{}.jar", pm.project_id, pm.file_id));
-                let file_name_display = file_name.clone();
 
                 let res = REQWEST_CLIENT.get(&download_url).send().await;
                 let response = match res {
@@ -1395,17 +1515,6 @@ pub async fn install_curseforge_catalog_pack(
                     }
                 }
 
-                // Route via the shared resolver — single source of truth.
-                let target_dir = match resolve_content_dir(
-                    pm.class_id,
-                    mod_meta.get(&pm.project_id).and_then(|m| m.class_id),
-                    Some(&file_name),
-                ) {
-                    CfContentDir::ResourcePacks => resourcepacks_dir,
-                    CfContentDir::ShaderPacks => shaderpacks_dir,
-                    CfContentDir::Mods => mods_dir,
-                };
-                let file_path = target_dir.join(&file_name);
                 tokio::fs::write(&file_path, &file_bytes).await?;
                 let completed = downloaded.fetch_add(1, Ordering::SeqCst) + 1;
                 bytes_downloaded.fetch_add(file_bytes.len() as u64, Ordering::SeqCst);
@@ -1470,6 +1579,12 @@ pub async fn install_curseforge_catalog_pack(
         },
     )
     .await?;
+
+    // The link now points at the freshly installed file — let the frontend
+    // know so the "Currently Installed" marker updates immediately instead of
+    // waiting for the next instance event (e.g. a launch). Best-effort: the
+    // install already succeeded, so an event failure must not fail it.
+    let _ = emit_instance(&instance_id, InstancePayloadType::Edited).await;
 
     // Enrich blocked mods with the real file-page URL (and a class ID when
     // the file didn't carry one) from the metadata fetched before the
@@ -2004,7 +2119,7 @@ pub async fn check_curseforge_pack_update(instance_id: String) -> crate::Result<
         if let Some(logo) = cf_mod_resp.data.logo.as_ref() {
             set_cf_instance_icon(
                 &instance_id,
-                logo.thumbnail_url.as_deref().or(logo.url.as_deref()),
+                cf_logo_icon_url(logo),
             )
             .await;
         }

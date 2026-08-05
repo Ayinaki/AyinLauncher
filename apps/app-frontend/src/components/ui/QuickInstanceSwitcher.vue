@@ -8,8 +8,14 @@ import { onUnmounted, ref } from 'vue'
 import NavButton from '@/components/ui/NavButton.vue'
 import { instance_listener } from '@/helpers/events.js'
 import { list } from '@/helpers/instance'
+import { stripMinecraftCodes } from '@/helpers/minecraft-colors'
 
 const { handleError } = injectNotificationManager()
+
+// How many of the most recently created/played instances the sidebar rail
+// shows. The rail scrolls (with hidden scrollbars) past this point, so the
+// number is a preference, not a hard ceiling.
+const MAX_QUICK_INSTANCES = 8
 
 const recentInstances = ref([])
 const getInstances = async () => {
@@ -32,7 +38,7 @@ const getInstances = async () => {
 
 			return dateB - dateA
 		})
-		.slice(0, 3)
+		.slice(0, MAX_QUICK_INSTANCES)
 }
 
 await getInstances()
@@ -49,22 +55,30 @@ onUnmounted(() => {
 </script>
 
 <template>
-	<div v-for="instance in recentInstances" :key="instance.id" v-tooltip.right="instance.name">
-		<NavButton :to="`/instance/${encodeURIComponent(instance.id)}`" class="relative">
-			<Avatar
-				:src="instance.icon_path ? convertFileSrc(instance.icon_path) : null"
-				size="28px"
-				:tint-by="instance.id"
-				:class="`transition-all ${instance.install_stage !== 'installed' ? `brightness-[0.25] scale-[0.85]` : `group-hover:brightness-75`}`"
-			/>
-			<div
-				v-if="instance.install_stage !== 'installed'"
-				class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"
-			>
-				<SpinnerIcon class="animate-spin w-4 h-4" />
-			</div>
-		</NavButton>
+	<!-- The rail grows to fit all capped instances. The parent nav column is
+	     the scroll container (hidden scrollbars), so a long rail scrolls the
+	     whole column instead of clipping mid-icon or pushing the bottom nav
+	     buttons off-screen. -->
+	<div class="quick-instances flex flex-col gap-[0.5rem]">
+		<div
+			v-for="instance in recentInstances"
+			:key="instance.id"
+			v-tooltip.right="stripMinecraftCodes(instance.name)"
+		>
+			<NavButton :to="`/instance/${encodeURIComponent(instance.id)}`" class="relative">
+				<Avatar
+					:src="instance.icon_path ? convertFileSrc(instance.icon_path) : null"
+					size="28px"
+					:tint-by="instance.id"
+					:class="`transition-all ${instance.install_stage !== 'installed' ? `brightness-[0.25] scale-[0.85]` : `group-hover:brightness-75`}`"
+				/>
+				<div
+					v-if="instance.install_stage !== 'installed'"
+					class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"
+				>
+					<SpinnerIcon class="animate-spin w-4 h-4" />
+				</div>
+			</NavButton>
+		</div>
 	</div>
 </template>
-
-<style scoped lang="scss"></style>
