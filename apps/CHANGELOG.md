@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.0](https://github.com/Ayinaki/AyinLauncher/releases/tag/v1.3.0) (2026-08-07)
+
+### ✨ Features
+
+- First release signed with the new updater key — existing installs need one manual reinstall, then auto-updates work.
+
+### 👽 Miscellaneous
+
+- Trim the monorepo down to the launcher build graph and make all CI checks pass.
+- Rewrite the README for AyinLauncher with install, dev, and CurseForge catalog setup guides.
+
 ## [2.5.0](https://github.com/ayin-studio/hippolytus/compare/apps-v2.4.0...apps-v2.5.0) (2026-07-16)
 
 
