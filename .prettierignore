@@ -1,3 +1,6 @@
 Cargo.lock
 pnpm-lock.yaml
 .github/**/*.png
+
+# tombi is the authority for TOML manifests
+**/Cargo.toml
