@@ -170,8 +170,8 @@ async function copyToClipboard(text) {
 					<template v-else-if="metadata.hostsFile">
 						<h3>Network issues</h3>
 						<p>
-							The Ayin Launcher tried to connect to Microsoft / Xbox / Minecraft services, but
-							the remote server rejected the connection. This may indicate that these services are
+							The Ayin Launcher tried to connect to Microsoft / Xbox / Minecraft services, but the
+							remote server rejected the connection. This may indicate that these services are
 							blocked by the hosts file.
 						</p>
 					</template>

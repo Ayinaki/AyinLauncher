@@ -293,18 +293,6 @@
   "button.upload-image": {
     "defaultMessage": "Încarcă o imagine"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Acum"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "Aplicație"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Găzduire"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Platformă"
-  },
   "collections.label.private": {
     "defaultMessage": "Privat"
   },

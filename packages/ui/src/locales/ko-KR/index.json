@@ -299,18 +299,6 @@
   "button.upload-image": {
     "defaultMessage": "이미지 업로드"
   },
-  "changelog.justNow": {
-    "defaultMessage": "최근"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "앱"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "호스팅"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "플랫폼"
-  },
   "collections.label.private": {
     "defaultMessage": "비공개"
   },

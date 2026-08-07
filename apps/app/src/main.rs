@@ -136,7 +136,9 @@ fn main() {
 
     let tauri_context = tauri::generate_context!();
 
-    let _log_guard = theseus::start_logger(&get_app_identifier(&tauri_context.config().identifier));
+    let _log_guard = theseus::start_logger(&get_app_identifier(
+        &tauri_context.config().identifier,
+    ));
 
     tracing::info!("Initialized tracing subscriber. Loading Ayin Launcher!");
 
@@ -193,12 +195,12 @@ fn main() {
             {
                 use tauri::Manager;
                 if let Some(webview_window) = app.get_webview_window("main") {
-                    let _ = webview_window.with_webview(|webview| {
-                        unsafe {
-                            let core = webview.controller().CoreWebView2().unwrap();
-                            let settings = core.Settings().unwrap();
-                            settings.SetAreDefaultContextMenusEnabled(false).unwrap();
-                        }
+                    let _ = webview_window.with_webview(|webview| unsafe {
+                        let core = webview.controller().CoreWebView2().unwrap();
+                        let settings = core.Settings().unwrap();
+                        settings
+                            .SetAreDefaultContextMenusEnabled(false)
+                            .unwrap();
                     });
                 }
             }
@@ -390,11 +392,10 @@ fn main() {
                             }
                         });
 
-                        if let Ok(true) = tauri::async_runtime::block_on(handle) {
-                            if should_restart {
+                        if let Ok(true) = tauri::async_runtime::block_on(handle)
+                            && should_restart {
                                 app.restart();
                             }
-                        }
                     }
                 }
                 #[cfg(target_os = "macos")]
@@ -458,5 +459,3 @@ fn main() {
         }
     }
 }
-
-

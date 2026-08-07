@@ -305,18 +305,6 @@
   "button.upload-image": {
     "defaultMessage": "Nahrát obrázek"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Právě teď"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "Aplikace"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosting"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Platforma"
-  },
   "collections.label.private": {
     "defaultMessage": "Soukromé"
   },
@@ -4557,4 +4545,3 @@
     "defaultMessage": "Typ"
   }
 }
-

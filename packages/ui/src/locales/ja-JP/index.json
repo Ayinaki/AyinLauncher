@@ -299,18 +299,6 @@
   "button.upload-image": {
     "defaultMessage": "画像をアップロード"
   },
-  "changelog.justNow": {
-    "defaultMessage": "今"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "アプリ"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "ホスティング"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "プラットフォーム"
-  },
   "collections.label.private": {
     "defaultMessage": "非公開"
   },

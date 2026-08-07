@@ -1,11 +1,11 @@
+use futures::stream::{self, StreamExt};
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
-use futures::stream::{self, StreamExt};
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
-use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::event::InstancePayloadType;
@@ -16,7 +16,8 @@ use crate::util::fetch::REQWEST_CLIENT;
 
 const CURSEFORGE_MOD_URL: &str = "https://api.curseforge.com/v1/mods";
 const CURSEFORGE_FILES_URL: &str = "https://api.curseforge.com/v1/mods/files";
-const MODRINTH_VERSION_FILES_URL: &str = "https://api.modrinth.com/v2/version_files";
+const MODRINTH_VERSION_FILES_URL: &str =
+    "https://api.modrinth.com/v2/version_files";
 
 /// Dev-curated CurseForge catalog pack, as listed in the repo's
 /// `curseforge-packs.json`. The launcher fetches this file live so packs can
@@ -34,14 +35,14 @@ pub struct CurseForgeCatalogPack {
 
 /// Raw URL of the catalog JSON in this repository. Edit the file, commit and
 /// push to add/remove packs — the launcher picks it up on the next fetch.
-const CURSEFORGE_CATALOG_URL: &str =
-    "https://raw.githubusercontent.com/Ayinaki/AyinLauncher/main/apps/app-frontend/src/assets/curseforge-packs.json";
+const CURSEFORGE_CATALOG_URL: &str = "https://raw.githubusercontent.com/Ayinaki/AyinLauncher/main/apps/app-frontend/src/assets/curseforge-packs.json";
 
 /// How long a fetched catalog is reused before refetching. Matches the
 /// GitHub raw CDN's own max-age, so a shorter TTL wouldn't see updates sooner.
 const CATALOG_CACHE_TTL: Duration = Duration::from_secs(5 * 60);
 
-static CATALOG_CACHE: Mutex<Option<(Instant, Vec<CurseForgeCatalogPack>)>> = Mutex::new(None);
+static CATALOG_CACHE: Mutex<Option<(Instant, Vec<CurseForgeCatalogPack>)>> =
+    Mutex::new(None);
 
 /// Resolves the CurseForge API key at runtime.
 ///
@@ -88,12 +89,12 @@ fn resolve_curseforge_api_key() -> Option<String> {
     }
 
     // Next to the executable and its parent (useful for packaged builds).
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            candidates.push(dir.join(".env"));
-            if let Some(parent) = dir.parent() {
-                candidates.push(parent.join(".env"));
-            }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        candidates.push(dir.join(".env"));
+        if let Some(parent) = dir.parent() {
+            candidates.push(parent.join(".env"));
         }
     }
 
@@ -158,7 +159,10 @@ pub async fn get_curseforge_catalog() -> Option<Vec<CurseForgeCatalogPack>> {
             }
         }
         Ok(res) => {
-            tracing::warn!("CurseForge catalog returned status {}", res.status());
+            tracing::warn!(
+                "CurseForge catalog returned status {}",
+                res.status()
+            );
             return None;
         }
         Err(e) => {
@@ -184,7 +188,8 @@ fn cf_headers() -> crate::Result<HeaderMap> {
             )))
         })?,
     );
-    req_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    req_headers
+        .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     req_headers.insert(
         USER_AGENT,
         HeaderValue::from_str(&launcher_user_agent())
@@ -219,8 +224,12 @@ pub async fn emit_cf_install_progress(payload: CfInstallProgress) {
         use tauri::Emitter;
         match crate::EventState::get() {
             Ok(event_state) => {
-                if let Err(e) = event_state.app.emit("cf_install_progress", &payload) {
-                    tracing::warn!("Failed to emit cf_install_progress event: {e}");
+                if let Err(e) =
+                    event_state.app.emit("cf_install_progress", &payload)
+                {
+                    tracing::warn!(
+                        "Failed to emit cf_install_progress event: {e}"
+                    );
                 }
             }
             Err(e) => {
@@ -433,7 +442,9 @@ struct ModrinthFile {
 }
 
 /// Iterate `hashes` array in exact order and select first entry with a supported algorithm ("sha1", "md5").
-pub fn select_supported_hash(hashes: &[CfHash]) -> Option<(&'static str, String)> {
+pub fn select_supported_hash(
+    hashes: &[CfHash],
+) -> Option<(&'static str, String)> {
     for h in hashes {
         if let Some(algo) = match_supported_algo(&h.algo) {
             return Some((algo, h.value.clone()));
@@ -503,9 +514,11 @@ pub fn select_latest_file<'a>(
 
     let matches_game_version = |file: &'a CfFile| -> bool {
         match game_version {
-            Some(version) => file.game_versions.as_ref().is_some_and(|versions| {
-                versions.iter().any(|v| v.eq_ignore_ascii_case(version))
-            }),
+            Some(version) => {
+                file.game_versions.as_ref().is_some_and(|versions| {
+                    versions.iter().any(|v| v.eq_ignore_ascii_case(version))
+                })
+            }
             None => true,
         }
     };
@@ -563,8 +576,7 @@ async fn fetch_pack_files(
 /// still providing the full-size `url` (e.g. Beyond Depth), so a plain
 /// `.or()` fallback is not enough — the first *non-empty* value wins.
 fn cf_logo_icon_url(logo: &CfModLogo) -> Option<&str> {
-    logo
-        .thumbnail_url
+    logo.thumbnail_url
         .as_deref()
         .filter(|url| !url.trim().is_empty())
         .or_else(|| logo.url.as_deref().filter(|url| !url.trim().is_empty()))
@@ -606,7 +618,9 @@ async fn set_cf_instance_icon(instance_id: &str, icon_url: Option<&str>) {
     else {
         return;
     };
-    let _ = crate::api::instance::edit_icon(instance_id, Some(icon_path.as_path())).await;
+    let _ =
+        crate::api::instance::edit_icon(instance_id, Some(icon_path.as_path()))
+            .await;
 }
 
 /// Checks whether a download URL is blocked or missing/invalid.
@@ -622,7 +636,10 @@ pub fn is_blocked_url(url: Option<&str>) -> bool {
 }
 
 /// Returns true iff Modrinth fallback should be attempted for a blocked file (hash_type == "sha1" and non-empty hash).
-pub fn should_attempt_modrinth_fallback(hash_type: Option<&str>, hash: Option<&str>) -> bool {
+pub fn should_attempt_modrinth_fallback(
+    hash_type: Option<&str>,
+    hash: Option<&str>,
+) -> bool {
     matches!((hash_type, hash), (Some("sha1"), Some(h)) if !h.is_empty())
 }
 
@@ -641,7 +658,9 @@ pub fn construct_blocked_mod(
     // the parent mod's metadata (numeric project URLs 404 on the website).
     // The `/download/` segment triggers an immediate file download instead of
     // landing on the file's info page.
-    let website_url = format!("https://www.curseforge.com/projects/{project_id}/download/{file_id}");
+    let website_url = format!(
+        "https://www.curseforge.com/projects/{project_id}/download/{file_id}"
+    );
     let hash_str = hash.unwrap_or("").to_string();
 
     BlockedMod {
@@ -672,8 +691,9 @@ pub fn build_blocked_mod_website_url(
     file_id: u32,
 ) -> String {
     if let (Some(class_slug), Some(mod_slug)) = (
-        parse_class_slug(website_url)
-            .or_else(|| class_id.and_then(class_slug_from_id).map(String::from)),
+        parse_class_slug(website_url).or_else(|| {
+            class_id.and_then(class_slug_from_id).map(String::from)
+        }),
         slug.filter(|s| !s.is_empty()),
     ) {
         return format!(
@@ -682,7 +702,9 @@ pub fn build_blocked_mod_website_url(
     }
     // Last resort: numeric project URL (only when metadata couldn't be fetched
     // at all, e.g. a network failure during enrichment).
-    format!("https://www.curseforge.com/projects/{project_id}/download/{file_id}")
+    format!(
+        "https://www.curseforge.com/projects/{project_id}/download/{file_id}"
+    )
 }
 
 /// Parses the category segment (class slug) from a CurseForge mod's
@@ -701,9 +723,9 @@ pub fn parse_class_slug(website_url: Option<&str>) -> Option<String> {
         .collect();
     while segments.len() >= 2
         && segments[segments.len() - 2].eq_ignore_ascii_case("files")
-        && segments
-            .last()
-            .is_some_and(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()))
+        && segments.last().is_some_and(|s| {
+            !s.is_empty() && s.chars().all(|c| c.is_ascii_digit())
+        })
     {
         segments.truncate(segments.len() - 2);
     }
@@ -773,7 +795,10 @@ pub fn resolve_content_dir(
 /// project IDs via the bulk mods endpoint (up to 50 IDs per request).
 /// Best-effort: failures are logged and the partial result is returned so a
 /// metadata lookup never hard-fails a pack install.
-async fn fetch_mod_metadata(project_ids: &[u32], req_headers: &HeaderMap) -> HashMap<u32, CfMod> {
+async fn fetch_mod_metadata(
+    project_ids: &[u32],
+    req_headers: &HeaderMap,
+) -> HashMap<u32, CfMod> {
     let mut mod_meta: HashMap<u32, CfMod> = HashMap::new();
     for chunk in project_ids.chunks(50) {
         let res = REQWEST_CLIENT
@@ -813,7 +838,10 @@ async fn fetch_mod_metadata(project_ids: &[u32], req_headers: &HeaderMap) -> Has
 
 /// Enriches blocked mods with the real file-page URL (and a class ID when the
 /// file didn't carry one) from the already-fetched mod metadata.
-fn enrich_blocked_mods(blocked_mods: &mut [BlockedMod], mod_meta: &HashMap<u32, CfMod>) {
+fn enrich_blocked_mods(
+    blocked_mods: &mut [BlockedMod],
+    mod_meta: &HashMap<u32, CfMod>,
+) {
     for bm in blocked_mods.iter_mut() {
         if let Some(meta) = mod_meta.get(&bm.project_id) {
             bm.website_url = build_blocked_mod_website_url(
@@ -849,15 +877,14 @@ async fn file_already_satisfied(
     }
     // Cheap rejection before hashing: when the expected size is known and
     // already differs, the file is not the one we want.
-    if let Some(size) = expected_size {
-        if size > 0
-            && tokio::fs::metadata(path)
-                .await
-                .map(|meta| meta.len() != size)
-                .unwrap_or(true)
-        {
-            return false;
-        }
+    if let Some(size) = expected_size
+        && size > 0
+        && tokio::fs::metadata(path)
+            .await
+            .map(|meta| meta.len() != size)
+            .unwrap_or(true)
+    {
+        return false;
     }
     if let (Some(hash_type), Some(expected)) = (hash_type, expected_hash) {
         let Ok(bytes) = tokio::fs::read(path).await else {
@@ -886,14 +913,14 @@ async fn file_already_satisfied(
 pub fn compute_md5(data: &[u8]) -> String {
     let mut h: [u32; 4] = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
     let mut k = [0u32; 64];
-    for i in 0..64 {
-        k[i] = ((1u64 << 32) as f64 * ((i as f64 + 1.0).sin().abs())) as u32;
+    for (i, item) in k.iter_mut().enumerate() {
+        *item = ((1u64 << 32) as f64 * ((i as f64 + 1.0).sin().abs())) as u32;
     }
     let r: [u32; 64] = [
-        7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
-        5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
-        4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
-        6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+        7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14,
+        20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16,
+        23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10,
+        15, 21, 6, 10, 15, 21,
     ];
 
     let mut msg = data.to_vec();
@@ -926,7 +953,8 @@ pub fn compute_md5(data: &[u8]) -> String {
             d = c;
             c = b;
             b = b.wrapping_add(
-                (a.wrapping_add(f).wrapping_add(k[i]).wrapping_add(w[g])).rotate_left(r[i])
+                (a.wrapping_add(f).wrapping_add(k[i]).wrapping_add(w[g]))
+                    .rotate_left(r[i]),
             );
             a = temp;
         }
@@ -939,10 +967,22 @@ pub fn compute_md5(data: &[u8]) -> String {
 
     format!(
         "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        (h[0] & 0xff) as u8, ((h[0] >> 8) & 0xff) as u8, ((h[0] >> 16) & 0xff) as u8, ((h[0] >> 24) & 0xff) as u8,
-        (h[1] & 0xff) as u8, ((h[1] >> 8) & 0xff) as u8, ((h[1] >> 16) & 0xff) as u8, ((h[1] >> 24) & 0xff) as u8,
-        (h[2] & 0xff) as u8, ((h[2] >> 8) & 0xff) as u8, ((h[2] >> 16) & 0xff) as u8, ((h[2] >> 24) & 0xff) as u8,
-        (h[3] & 0xff) as u8, ((h[3] >> 8) & 0xff) as u8, ((h[3] >> 16) & 0xff) as u8, ((h[3] >> 24) & 0xff) as u8,
+        (h[0] & 0xff) as u8,
+        ((h[0] >> 8) & 0xff) as u8,
+        ((h[0] >> 16) & 0xff) as u8,
+        ((h[0] >> 24) & 0xff) as u8,
+        (h[1] & 0xff) as u8,
+        ((h[1] >> 8) & 0xff) as u8,
+        ((h[1] >> 16) & 0xff) as u8,
+        ((h[1] >> 24) & 0xff) as u8,
+        (h[2] & 0xff) as u8,
+        ((h[2] >> 8) & 0xff) as u8,
+        ((h[2] >> 16) & 0xff) as u8,
+        ((h[2] >> 24) & 0xff) as u8,
+        (h[3] & 0xff) as u8,
+        ((h[3] >> 8) & 0xff) as u8,
+        ((h[3] >> 16) & 0xff) as u8,
+        ((h[3] >> 24) & 0xff) as u8,
     )
 }
 
@@ -976,7 +1016,11 @@ pub async fn install_curseforge_catalog_pack(
         .headers(req_headers.clone())
         .send()
         .await
-        .map_err(|e| crate::Error::from(crate::ErrorKind::InputError(format!("Network error fetching mod {project_id}: {e}"))))?;
+        .map_err(|e| {
+            crate::Error::from(crate::ErrorKind::InputError(format!(
+                "Network error fetching mod {project_id}: {e}"
+            )))
+        })?;
 
     if !res.status().is_success() {
         return Err(crate::Error::from(crate::ErrorKind::InputError(format!(
@@ -986,7 +1030,9 @@ pub async fn install_curseforge_catalog_pack(
     }
 
     let cf_mod_resp: CfModResponse = res.json().await.map_err(|e| {
-        crate::Error::from(crate::ErrorKind::InputError(format!("Failed to parse mod {project_id} response: {e}")))
+        crate::Error::from(crate::ErrorKind::InputError(format!(
+            "Failed to parse mod {project_id} response: {e}"
+        )))
     })?;
 
     let mut cf_mod = cf_mod_resp.data;
@@ -1022,33 +1068,45 @@ pub async fn install_curseforge_catalog_pack(
     let selected_file_id = selected_file.id;
 
     // 3. Fetch pack file details & download pack archive to extract manifest.json & overrides
-    let pack_download_url = selected_file.download_url.as_deref().ok_or_else(|| {
-        crate::Error::from(crate::ErrorKind::InputError(format!(
-            "Modpack file {selected_file_id} has no download URL"
-        )))
-    })?;
+    let pack_download_url =
+        selected_file.download_url.as_deref().ok_or_else(|| {
+            crate::Error::from(crate::ErrorKind::InputError(format!(
+                "Modpack file {selected_file_id} has no download URL"
+            )))
+        })?;
 
     let pack_bytes = REQWEST_CLIENT
         .get(pack_download_url)
         .send()
         .await
-        .map_err(|e| crate::Error::from(crate::ErrorKind::InputError(format!("Failed to download modpack file: {e}"))))?
+        .map_err(|e| {
+            crate::Error::from(crate::ErrorKind::InputError(format!(
+                "Failed to download modpack file: {e}"
+            )))
+        })?
         .bytes()
         .await
-        .map_err(|e| crate::Error::from(crate::ErrorKind::InputError(format!("Failed to read modpack file bytes: {e}"))))?;
+        .map_err(|e| {
+            crate::Error::from(crate::ErrorKind::InputError(format!(
+                "Failed to read modpack file bytes: {e}"
+            )))
+        })?;
 
-    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(&pack_bytes)).map_err(|e| {
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(&pack_bytes))
+        .map_err(|e| {
         crate::Error::from(crate::ErrorKind::InputError(format!(
             "Failed to open modpack zip archive: {e}"
         )))
     })?;
 
     let manifest_content = {
-        let mut manifest_file = archive.by_name("manifest.json").map_err(|_| {
-            crate::Error::from(crate::ErrorKind::InputError(
-                "No manifest.json found in CurseForge modpack zip".to_string(),
-            ))
-        })?;
+        let mut manifest_file =
+            archive.by_name("manifest.json").map_err(|_| {
+                crate::Error::from(crate::ErrorKind::InputError(
+                    "No manifest.json found in CurseForge modpack zip"
+                        .to_string(),
+                ))
+            })?;
         let mut content = String::new();
         manifest_file.read_to_string(&mut content)?;
         content
@@ -1096,44 +1154,49 @@ pub async fn install_curseforge_catalog_pack(
 
     // Determine the instance to install into: reuse an existing one when
     // updating, otherwise create a fresh instance.
-    let (instance_id, instance_dir, _is_update) = if let Some(existing_id) = instance_id {
-        // Verify the existing instance is still around before reusing it.
-        crate::api::instance::get(&existing_id).await?.ok_or_else(|| {
-            crate::Error::from(crate::ErrorKind::InputError(format!(
-                "Instance {existing_id} not found"
-            )))
-        })?;
-        let instance_dir = crate::api::instance::get_full_path(&existing_id).await?;
-        (existing_id, instance_dir, true)
-    } else {
-        let instance_meta = crate::api::instance::create(
-            pack_name.clone(),
-            manifest.minecraft.version.clone(),
-            mod_loader,
-            loader_version,
-            None,
-            // The resolved CurseForge project/file IDs are deliberately left
-            // unset here: the instance becomes visible in the sidebar the
-            // moment it is created, and exposing IDs that get resolved against
-            // the Modrinth API before the pack is fully installed would let
-            // the UI query a version ID that isn't installed yet (surfacing
-            // "Linked modpack version ... not found"). The full link is
-            // persisted at the end of this function, only after everything
-            // has succeeded.
-            InstanceLink::ImportedModpack {
-                project_id: None,
-                version_id: None,
-                name: Some(pack_name.clone()),
-                version_number: Some(manifest.version.clone()),
-                filename: selected_file.file_name.clone(),
-            },
-            None,
-        )
-        .await?;
-        let instance_id = instance_meta.instance.id.clone();
-        let instance_dir = crate::api::instance::get_full_path(&instance_id).await?;
-        (instance_id, instance_dir, false)
-    };
+    let (instance_id, instance_dir, _is_update) =
+        if let Some(existing_id) = instance_id {
+            // Verify the existing instance is still around before reusing it.
+            crate::api::instance::get(&existing_id).await?.ok_or_else(
+                || {
+                    crate::Error::from(crate::ErrorKind::InputError(format!(
+                        "Instance {existing_id} not found"
+                    )))
+                },
+            )?;
+            let instance_dir =
+                crate::api::instance::get_full_path(&existing_id).await?;
+            (existing_id, instance_dir, true)
+        } else {
+            let instance_meta = crate::api::instance::create(
+                pack_name.clone(),
+                manifest.minecraft.version.clone(),
+                mod_loader,
+                loader_version,
+                None,
+                // The resolved CurseForge project/file IDs are deliberately left
+                // unset here: the instance becomes visible in the sidebar the
+                // moment it is created, and exposing IDs that get resolved against
+                // the Modrinth API before the pack is fully installed would let
+                // the UI query a version ID that isn't installed yet (surfacing
+                // "Linked modpack version ... not found"). The full link is
+                // persisted at the end of this function, only after everything
+                // has succeeded.
+                InstanceLink::ImportedModpack {
+                    project_id: None,
+                    version_id: None,
+                    name: Some(pack_name.clone()),
+                    version_number: Some(manifest.version.clone()),
+                    filename: selected_file.file_name.clone(),
+                },
+                None,
+            )
+            .await?;
+            let instance_id = instance_meta.instance.id.clone();
+            let instance_dir =
+                crate::api::instance::get_full_path(&instance_id).await?;
+            (instance_id, instance_dir, false)
+        };
 
     // Tag the bundled Ayin server entry with the modpack name (e.g. "Ayin's
     // Server All the Mods 11") so players can tell which pack the entry
@@ -1167,7 +1230,8 @@ pub async fn install_curseforge_catalog_pack(
     };
 
     // Extract overrides folder
-    let overrides_prefix = format!("{}/", manifest.overrides.trim_end_matches('/'));
+    let overrides_prefix =
+        format!("{}/", manifest.overrides.trim_end_matches('/'));
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(|e| {
             crate::Error::from(crate::ErrorKind::InputError(format!(
@@ -1217,13 +1281,12 @@ pub async fn install_curseforge_catalog_pack(
                 .send()
                 .await;
 
-            if let Ok(response) = res {
-                if response.status().is_success() {
-                    if let Ok(cf_res) = response.json::<CfFilesResponse>().await {
-                        for file in cf_res.data {
-                            cf_files_map.insert(file.id, file);
-                        }
-                    }
+            if let Ok(response) = res
+                && response.status().is_success()
+                && let Ok(cf_res) = response.json::<CfFilesResponse>().await
+            {
+                for file in cf_res.data {
+                    cf_files_map.insert(file.id, file);
                 }
             }
         }
@@ -1265,13 +1328,20 @@ pub async fn install_curseforge_catalog_pack(
         // Mods whose author disallows third-party distribution (or which are
         // no longer available on CurseForge) must be downloaded manually —
         // they never qualify for the Modrinth hash fallback either.
-        let distribution_blocked = cf_file.and_then(|f| f.allow_mod_distribution) == Some(false)
-            || cf_file.and_then(|f| f.is_available) == Some(false);
-        let blocked = distribution_blocked || is_blocked_url(download_url.as_deref());
-        if blocked && !distribution_blocked && should_attempt_modrinth_fallback(hash_type, hash_value.as_deref()) {
-            if let Some(ref h) = hash_value {
-                sha1_to_check.push(h.clone());
-            }
+        let distribution_blocked =
+            cf_file.and_then(|f| f.allow_mod_distribution) == Some(false)
+                || cf_file.and_then(|f| f.is_available) == Some(false);
+        let blocked =
+            distribution_blocked || is_blocked_url(download_url.as_deref());
+        if blocked
+            && !distribution_blocked
+            && should_attempt_modrinth_fallback(
+                hash_type,
+                hash_value.as_deref(),
+            )
+            && let Some(ref h) = hash_value
+        {
+            sha1_to_check.push(h.clone());
         }
 
         pending_mods.push(PendingMod {
@@ -1295,10 +1365,12 @@ pub async fn install_curseforge_catalog_pack(
         };
 
         let mut mr_headers = HeaderMap::new();
-        mr_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        mr_headers
+            .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         mr_headers.insert(
             USER_AGENT,
-            HeaderValue::from_str(&launcher_user_agent()).unwrap_or_else(|_| HeaderValue::from_static("ayinlauncher")),
+            HeaderValue::from_str(&launcher_user_agent())
+                .unwrap_or_else(|_| HeaderValue::from_static("ayinlauncher")),
         );
 
         let res = REQWEST_CLIENT
@@ -1308,14 +1380,20 @@ pub async fn install_curseforge_catalog_pack(
             .send()
             .await;
 
-        if let Ok(response) = res {
-            if response.status().is_success() {
-                if let Ok(mr_map) = response.json::<HashMap<String, ModrinthVersionFileResult>>().await {
-                    for (sha1_hash, result) in mr_map {
-                        if let Some(file) = result.files.iter().find(|f| f.primary.unwrap_or(false)).or_else(|| result.files.first()) {
-                            modrinth_resolved.insert(sha1_hash, file.url.clone());
-                        }
-                    }
+        if let Ok(response) = res
+            && response.status().is_success()
+            && let Ok(mr_map) = response
+                .json::<HashMap<String, ModrinthVersionFileResult>>()
+                .await
+        {
+            for (sha1_hash, result) in mr_map {
+                if let Some(file) = result
+                    .files
+                    .iter()
+                    .find(|f| f.primary.unwrap_or(false))
+                    .or_else(|| result.files.first())
+                {
+                    modrinth_resolved.insert(sha1_hash, file.url.clone());
                 }
             }
         }
@@ -1336,7 +1414,8 @@ pub async fn install_curseforge_catalog_pack(
     // endpoint does NOT return a per-file classId, so the mod's class ID is
     // what lets us route resource packs (12) and shader packs (6552) into
     // their correct instance folders instead of dumping everything in mods/.
-    let project_ids: Vec<u32> = pending_mods.iter().map(|p| p.project_id).collect();
+    let project_ids: Vec<u32> =
+        pending_mods.iter().map(|p| p.project_id).collect();
     let mod_meta = fetch_mod_metadata(&project_ids, &req_headers).await;
 
     // 7. Download execution with size & hash verification
@@ -1373,7 +1452,7 @@ pub async fn install_curseforge_catalog_pack(
     // mismatch, size mismatch, I/O) propagate through the stream.
     let downloaded = std::sync::Arc::new(AtomicU64::new(0));
     let bytes_downloaded = std::sync::Arc::new(AtomicU64::new(0));
-    let results: Vec<crate::Result<Option<BlockedMod>>> = stream::iter(pending_mods.into_iter().enumerate().map(|(_idx, pm)| pm))
+    let results: Vec<crate::Result<Option<BlockedMod>>> = stream::iter(pending_mods)
         .map(|pm| {
             let mod_meta = std::sync::Arc::clone(&mod_meta);
             let mods_dir = std::sync::Arc::clone(&mods_dir);
@@ -1410,11 +1489,10 @@ pub async fn install_curseforge_catalog_pack(
                 .await
                 {
                     let completed = downloaded.fetch_add(1, Ordering::SeqCst) + 1;
-                    if !pm.blocked {
-                        if let Some(len) = pm.file_length {
+                    if !pm.blocked
+                        && let Some(len) = pm.file_length {
                             bytes_downloaded.fetch_add(len, Ordering::SeqCst);
                         }
-                    }
                     let cur_bytes = bytes_downloaded.load(Ordering::SeqCst);
                     emit_cf_install_progress(CfInstallProgress {
                         project_id,
@@ -1441,57 +1519,56 @@ pub async fn install_curseforge_catalog_pack(
                     return Ok(Some(bm));
                 }
 
-                let download_url = match pm.download_url {
-                    Some(url) => url,
-                    None => {
-                        downloaded.fetch_add(1, Ordering::SeqCst);
-                        return Ok(Some(construct_blocked_mod(
-                            pm.project_id,
-                            pm.file_id,
-                            pm.file_name.as_deref(),
-                            pm.hash_value.as_deref(),
-                            pm.class_id,
-                        )));
-                    }
+                let Some(download_url) = pm.download_url else {
+                    downloaded.fetch_add(1, Ordering::SeqCst);
+                    return Ok(Some(construct_blocked_mod(
+                        pm.project_id,
+                        pm.file_id,
+                        pm.file_name.as_deref(),
+                        pm.hash_value.as_deref(),
+                        pm.class_id,
+                    )));
                 };
 
-                let res = REQWEST_CLIENT.get(&download_url).send().await;
-                let response = match res {
-                    Ok(r) if r.status().is_success() => r,
-                    _ => {
-                        downloaded.fetch_add(1, Ordering::SeqCst);
-                        return Ok(Some(construct_blocked_mod(
-                            pm.project_id,
-                            pm.file_id,
-                            Some(&file_name),
-                            pm.hash_value.as_deref(),
-                            pm.class_id,
-                        )));
-                    }
+                let Ok(response) = REQWEST_CLIENT.get(&download_url).send().await else {
+                    downloaded.fetch_add(1, Ordering::SeqCst);
+                    return Ok(Some(construct_blocked_mod(
+                        pm.project_id,
+                        pm.file_id,
+                        Some(&file_name),
+                        pm.hash_value.as_deref(),
+                        pm.class_id,
+                    )));
+                };
+                if !response.status().is_success() {
+                    downloaded.fetch_add(1, Ordering::SeqCst);
+                    return Ok(Some(construct_blocked_mod(
+                        pm.project_id,
+                        pm.file_id,
+                        Some(&file_name),
+                        pm.hash_value.as_deref(),
+                        pm.class_id,
+                    )));
+                }
+
+                let Ok(file_bytes) = response.bytes().await else {
+                    downloaded.fetch_add(1, Ordering::SeqCst);
+                    return Ok(Some(construct_blocked_mod(
+                        pm.project_id,
+                        pm.file_id,
+                        Some(&file_name),
+                        pm.hash_value.as_deref(),
+                        pm.class_id,
+                    )));
                 };
 
-                let file_bytes = match response.bytes().await {
-                    Ok(b) => b,
-                    Err(_) => {
-                        downloaded.fetch_add(1, Ordering::SeqCst);
-                        return Ok(Some(construct_blocked_mod(
-                            pm.project_id,
-                            pm.file_id,
-                            Some(&file_name),
-                            pm.hash_value.as_deref(),
-                            pm.class_id,
-                        )));
-                    }
-                };
-
-                if let Some(expected_size) = pm.file_length {
-                    if expected_size > 0 && (file_bytes.len() as u64) != expected_size {
+                if let Some(expected_size) = pm.file_length
+                    && expected_size > 0 && (file_bytes.len() as u64) != expected_size {
                         return Err(crate::Error::from(crate::ErrorKind::InputError(format!(
                             "Size mismatch for file {file_name}: expected {expected_size}, got {}",
                             file_bytes.len()
                         ))));
                     }
-                }
 
                 if let (Some(hash_type), Some(expected_hash)) = (pm.hash_type, &pm.hash_value) {
                     match hash_type {
@@ -1633,9 +1710,7 @@ pub struct CfPackFilesResult {
 }
 
 /// Resolves the CurseForge project ID from an installed instance's link.
-fn curseforge_project_id_from_link(
-    link: InstanceLink,
-) -> crate::Result<u32> {
+fn curseforge_project_id_from_link(link: InstanceLink) -> crate::Result<u32> {
     match link {
         InstanceLink::ImportedModpack {
             project_id: Some(pid),
@@ -1656,14 +1731,17 @@ fn curseforge_project_id_from_link(
 pub async fn get_curseforge_pack_files(
     instance_id: String,
 ) -> crate::Result<CfPackFilesResult> {
-    let instance = crate::api::instance::get(&instance_id)
-        .await?
-        .ok_or_else(|| {
-            crate::Error::from(crate::ErrorKind::InputError(format!(
-                "Instance {instance_id} not found"
-            )))
-        })?;
-    let (project_id, installed_file_id, installed_filename) = match instance.link {
+    let instance =
+        crate::api::instance::get(&instance_id)
+            .await?
+            .ok_or_else(|| {
+                crate::Error::from(crate::ErrorKind::InputError(format!(
+                    "Instance {instance_id} not found"
+                )))
+            })?;
+    let (project_id, installed_file_id, installed_filename) = match instance
+        .link
+    {
         InstanceLink::ImportedModpack {
             project_id: Some(pid),
             version_id: Some(vid),
@@ -1685,7 +1763,7 @@ pub async fn get_curseforge_pack_files(
         _ => {
             return Err(crate::Error::from(crate::ErrorKind::InputError(
                 "Instance is not linked to a CurseForge modpack".to_string(),
-            )))
+            )));
         }
     };
     // Latest is computed against the instance's game version so the picker's
@@ -1699,7 +1777,11 @@ pub async fn get_curseforge_pack_files(
         .headers(req_headers.clone())
         .send()
         .await
-        .map_err(|e| crate::Error::from(crate::ErrorKind::InputError(format!("Network error fetching mod {project_id}: {e}"))))?;
+        .map_err(|e| {
+            crate::Error::from(crate::ErrorKind::InputError(format!(
+                "Network error fetching mod {project_id}: {e}"
+            )))
+        })?;
     if !res.status().is_success() {
         return Err(crate::Error::from(crate::ErrorKind::InputError(format!(
             "CurseForge API returned status {} for project {project_id}",
@@ -1743,9 +1825,8 @@ pub async fn get_curseforge_pack_files(
     if !files.iter().any(|f| f.file_id == installed_file_id) {
         files.push(CfPackFileInfo {
             file_id: installed_file_id,
-            file_name: installed_filename.unwrap_or_else(|| {
-                format!("file-{installed_file_id}.jar")
-            }),
+            file_name: installed_filename
+                .unwrap_or_else(|| format!("file-{installed_file_id}.jar")),
             release_type: None,
             file_date: None,
             game_versions: None,
@@ -1771,16 +1852,23 @@ pub async fn change_curseforge_pack_version(
     instance_id: String,
     file_id: u32,
 ) -> crate::Result<CurseForgeImportResult> {
-    let instance = crate::api::instance::get(&instance_id)
-        .await?
-        .ok_or_else(|| {
-            crate::Error::from(crate::ErrorKind::InputError(format!(
-                "Instance {instance_id} not found"
-            )))
-        })?;
+    let instance =
+        crate::api::instance::get(&instance_id)
+            .await?
+            .ok_or_else(|| {
+                crate::Error::from(crate::ErrorKind::InputError(format!(
+                    "Instance {instance_id} not found"
+                )))
+            })?;
     let project_id = curseforge_project_id_from_link(instance.link)?;
 
-    install_curseforge_catalog_pack(project_id, None, Some(instance_id), Some(file_id)).await
+    install_curseforge_catalog_pack(
+        project_id,
+        None,
+        Some(instance_id),
+        Some(file_id),
+    )
+    .await
 }
 
 /// Outcome of the Downloads-folder scan for a single blocked mod, so the UI
@@ -1828,7 +1916,8 @@ pub async fn scan_downloads_for_blocked_mods(
                 "Instance {instance_id} not found"
             )))
         })?;
-    let instance_dir = crate::api::instance::get_full_path(&instance_id).await?;
+    let instance_dir =
+        crate::api::instance::get_full_path(&instance_id).await?;
     let mods_dir = instance_dir.join("mods");
     let resourcepacks_dir = instance_dir.join("resourcepacks");
     let shaderpacks_dir = instance_dir.join("shaderpacks");
@@ -1869,17 +1958,15 @@ pub async fn scan_downloads_for_blocked_mods(
         if !path.is_file() {
             continue;
         }
-        let Some(candidate_name) = path.file_name().and_then(|n| n.to_str()) else {
+        let Some(candidate_name) = path.file_name().and_then(|n| n.to_str())
+        else {
             continue;
         };
         // Match the candidate against the first still-unmatched blocked mod.
-        let Some(idx) = blocked_mods
-            .iter()
-            .position(|bm| {
-                !matched_file_ids.contains(&bm.file_id)
-                    && filename_matches(&bm.file_name, candidate_name)
-            })
-        else {
+        let Some(idx) = blocked_mods.iter().position(|bm| {
+            !matched_file_ids.contains(&bm.file_id)
+                && filename_matches(&bm.file_name, candidate_name)
+        }) else {
             continue;
         };
 
@@ -1921,7 +2008,8 @@ pub async fn scan_downloads_for_blocked_mods(
             .and_then(|n| n.to_str())
             .unwrap_or("mods")
             .to_string();
-        items[idx].status = if conflict { "conflict" } else { "moved" }.to_string();
+        items[idx].status =
+            if conflict { "conflict" } else { "moved" }.to_string();
         items[idx].destination = Some(dest_label);
         moved += 1;
     }
@@ -1978,7 +2066,11 @@ pub fn filename_matches(expected: &str, candidate: &str) -> bool {
 /// ("quark", "jar")). Files without an extension compare on the whole name.
 fn split_stem_and_ext(name: &str) -> (&str, &str) {
     match name.rsplit_once('.') {
-        Some((stem, ext)) if !stem.is_empty() && !ext.is_empty() && ext.len() <= 10 => (stem, ext),
+        Some((stem, ext))
+            if !stem.is_empty() && !ext.is_empty() && ext.len() <= 10 =>
+        {
+            (stem, ext)
+        }
         _ => (name, ""),
     }
 }
@@ -1998,7 +2090,7 @@ fn normalize_stem(stem: &str) -> String {
 fn version_stripped(mut stem: &str) -> &str {
     stem = strip_browser_suffix(stem);
     loop {
-        let Some(sep_idx) = stem.rfind(|c: char| matches!(c, '-' | '_' | '.' | ' ')) else {
+        let Some(sep_idx) = stem.rfind(['-', '_', '.', ' ']) else {
             return stem;
         };
         let (base, tail) = stem.split_at(sep_idx + 1);
@@ -2049,29 +2141,34 @@ fn duplicate_marker(name: &str) -> Option<(usize, usize)> {
     // strips cleanly to "quark" instead of "quark -".
     let lower = name.to_ascii_lowercase();
     for word in ["copy", "duplicate"] {
-        if let Some(word_start) = lower.rfind(word) {
-            if word_start + word.len() == lower.len() {
-                let bytes = lower.as_bytes();
-                let mut start = word_start;
-                while start > 0 && (bytes[start - 1] == b' ' || bytes[start - 1] == b'-') {
-                    start -= 1;
-                }
-                return Some((start, word_start + word.len() - start));
+        if let Some(word_start) = lower.rfind(word)
+            && word_start + word.len() == lower.len()
+        {
+            let bytes = lower.as_bytes();
+            let mut start = word_start;
+            while start > 0
+                && (bytes[start - 1] == b' ' || bytes[start - 1] == b'-')
+            {
+                start -= 1;
             }
+            return Some((start, word_start + word.len() - start));
         }
     }
     None
 }
 
 /// Checks if an update is available for an installed CurseForge catalog modpack instance.
-pub async fn check_curseforge_pack_update(instance_id: String) -> crate::Result<bool> {
-    let instance = crate::api::instance::get(&instance_id)
-        .await?
-        .ok_or_else(|| {
-            crate::Error::from(crate::ErrorKind::InputError(format!(
-                "Instance {instance_id} not found"
-            )))
-        })?;
+pub async fn check_curseforge_pack_update(
+    instance_id: String,
+) -> crate::Result<bool> {
+    let instance =
+        crate::api::instance::get(&instance_id)
+            .await?
+            .ok_or_else(|| {
+                crate::Error::from(crate::ErrorKind::InputError(format!(
+                    "Instance {instance_id} not found"
+                )))
+            })?;
 
     let (project_id, installed_file_id) = match instance.link {
         InstanceLink::ImportedModpack {
@@ -2102,27 +2199,33 @@ pub async fn check_curseforge_pack_update(instance_id: String) -> crate::Result<
         .headers(req_headers.clone())
         .send()
         .await
-        .map_err(|e| crate::Error::from(crate::ErrorKind::InputError(format!("Network error checking updates for mod {project_id}: {e}"))))?;
+        .map_err(|e| {
+            crate::Error::from(crate::ErrorKind::InputError(format!(
+                "Network error checking updates for mod {project_id}: {e}"
+            )))
+        })?;
 
     if !res.status().is_success() {
         return Ok(false);
     }
 
     let mut cf_mod_resp: CfModResponse = res.json().await.map_err(|e| {
-        crate::Error::from(crate::ErrorKind::InputError(format!("Failed to parse mod response: {e}")))
+        crate::Error::from(crate::ErrorKind::InputError(format!(
+            "Failed to parse mod response: {e}"
+        )))
     })?;
 
     // Backfill: older CurseForge installs predate icon capture. If this
     // instance has no icon yet, opportunistically fetch and cache the pack
     // logo (best-effort; never fail the update check over it).
-    if instance.instance.icon_path.as_deref().map_or(true, str::is_empty) {
-        if let Some(logo) = cf_mod_resp.data.logo.as_ref() {
-            set_cf_instance_icon(
-                &instance_id,
-                cf_logo_icon_url(logo),
-            )
-            .await;
-        }
+    if instance
+        .instance
+        .icon_path
+        .as_deref()
+        .is_none_or(str::is_empty)
+        && let Some(logo) = cf_mod_resp.data.logo.as_ref()
+    {
+        set_cf_instance_icon(&instance_id, cf_logo_icon_url(logo)).await;
     }
 
     // Same selection rules as the installer: prefer the dedicated files
@@ -2171,7 +2274,10 @@ mod tests {
         ];
 
         let selected = select_supported_hash(&hashes);
-        assert!(selected.is_some(), "Expected a supported hash to be selected");
+        assert!(
+            selected.is_some(),
+            "Expected a supported hash to be selected"
+        );
         let (algo, val) = selected.unwrap();
         assert_eq!(algo, "sha1");
         assert_eq!(val, "a1b2c3d4e5f678901234567890abcdef12345678");
@@ -2222,7 +2328,13 @@ mod tests {
         let file_name = Some("custom-blocked-mod.jar");
         let hash = Some("sha1_hash_abc");
 
-        let blocked = construct_blocked_mod(project_id, file_id, file_name, hash, Some(6));
+        let blocked = construct_blocked_mod(
+            project_id,
+            file_id,
+            file_name,
+            hash,
+            Some(6),
+        );
 
         assert_eq!(blocked.project_id, 12345);
         assert_eq!(blocked.file_id, 67890);
@@ -2249,15 +2361,33 @@ mod tests {
     #[test]
     fn test_resolve_content_dir_routes_resource_and_shader_packs() {
         // File-level class ID wins when the API provides one.
-        assert_eq!(resolve_content_dir(Some(12), None, None), CfContentDir::ResourcePacks);
-        assert_eq!(resolve_content_dir(Some(6552), None, None), CfContentDir::ShaderPacks);
-        assert_eq!(resolve_content_dir(Some(6), None, None), CfContentDir::Mods);
+        assert_eq!(
+            resolve_content_dir(Some(12), None, None),
+            CfContentDir::ResourcePacks
+        );
+        assert_eq!(
+            resolve_content_dir(Some(6552), None, None),
+            CfContentDir::ShaderPacks
+        );
+        assert_eq!(
+            resolve_content_dir(Some(6), None, None),
+            CfContentDir::Mods
+        );
 
         // Missing file class ID falls back to the parent mod's class ID — the
         // real-world case, since the files API omits per-file classId.
-        assert_eq!(resolve_content_dir(None, Some(12), None), CfContentDir::ResourcePacks);
-        assert_eq!(resolve_content_dir(None, Some(6552), None), CfContentDir::ShaderPacks);
-        assert_eq!(resolve_content_dir(None, Some(6), None), CfContentDir::Mods);
+        assert_eq!(
+            resolve_content_dir(None, Some(12), None),
+            CfContentDir::ResourcePacks
+        );
+        assert_eq!(
+            resolve_content_dir(None, Some(6552), None),
+            CfContentDir::ShaderPacks
+        );
+        assert_eq!(
+            resolve_content_dir(None, Some(6), None),
+            CfContentDir::Mods
+        );
 
         // No class IDs at all -> filename heuristics, then Mods default.
         assert_eq!(
@@ -2292,7 +2422,9 @@ mod tests {
 
         // A trailing /files/<numeric-id> on websiteUrl is tolerated.
         let url = build_blocked_mod_website_url(
-            Some("https://www.curseforge.com/minecraft/texture-packs/faithful/files/123456"),
+            Some(
+                "https://www.curseforge.com/minecraft/texture-packs/faithful/files/123456",
+            ),
             Some("faithful"),
             Some(12),
             123,
@@ -2304,14 +2436,21 @@ mod tests {
         );
 
         // Missing websiteUrl falls back to the class-ID mapping.
-        let url = build_blocked_mod_website_url(None, Some("jei"), Some(6), 238222, 4700651);
+        let url = build_blocked_mod_website_url(
+            None,
+            Some("jei"),
+            Some(6),
+            238222,
+            4700651,
+        );
         assert_eq!(
             url,
             "https://www.curseforge.com/minecraft/mc-mods/jei/download/4700651"
         );
 
         // No slug at all -> numeric fallback (still better than nothing).
-        let url = build_blocked_mod_website_url(None, None, None, 238222, 4700651);
+        let url =
+            build_blocked_mod_website_url(None, None, None, 238222, 4700651);
         assert_eq!(
             url,
             "https://www.curseforge.com/projects/238222/download/4700651"
@@ -2320,10 +2459,7 @@ mod tests {
 
     #[test]
     fn test_filename_matching_is_case_insensitive_and_version_tolerant() {
-        assert!(filename_matches(
-            "quark-r1.4-121.jar",
-            "Quark_R1.4-121.jar"
-        ));
+        assert!(filename_matches("quark-r1.4-121.jar", "Quark_R1.4-121.jar"));
         assert!(filename_matches("quark-r1.4-121.jar", "quark-r1.5.jar"));
         assert!(filename_matches("quark-r1.4-121.jar", "quark (1).jar"));
         assert!(filename_matches("jei_1.12.2.jar", "JEI 1.12.2.jar"));
@@ -2484,22 +2620,26 @@ mod tests {
 
     #[tokio::test]
     async fn test_live_curseforge_api_request() {
-        use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
+        use reqwest::header::{
+            CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT,
+        };
 
         // This test needs a real API key and network access; skip it (rather than
         // fail the build) when the key has not been configured.
         let Ok(api_key) = curseforge_api_key() else {
-            println!("Skipping live CurseForge API test: CURSEFORGE_API_KEY not set");
+            println!(
+                "Skipping live CurseForge API test: CURSEFORGE_API_KEY not set"
+            );
             return;
         };
 
         let mut req_headers = HeaderMap::new();
-        req_headers.insert(
-            "x-api-key",
-            HeaderValue::from_str(&api_key).unwrap(),
-        );
-        req_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        req_headers.insert(USER_AGENT, HeaderValue::from_static("ayinlauncher/1.0.0"));
+        req_headers
+            .insert("x-api-key", HeaderValue::from_str(&api_key).unwrap());
+        req_headers
+            .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        req_headers
+            .insert(USER_AGENT, HeaderValue::from_static("ayinlauncher/1.0.0"));
 
         let test_projects = [
             (925200, "All the Mods 10"),
@@ -2521,15 +2661,23 @@ mod tests {
             if let Ok(resp) = res {
                 assert!(resp.status().is_success());
                 let body = resp.text().await.unwrap_or_default();
-                let parsed: CfModResponse = serde_json::from_str(&body).unwrap();
+                let parsed: CfModResponse =
+                    serde_json::from_str(&body).unwrap();
                 // Use the same release-preference logic the installer uses so
                 // this printout reflects what would actually be installed
                 // (e.g. RLCraft's newer Alpha must not beat its Release).
                 let latest_file =
-                    select_latest_file(&parsed.data.latest_files, None).unwrap();
-                let (hash_type, hash_val) = select_supported_hash(latest_file.hashes.as_deref().unwrap_or(&[])).unwrap_or(("none", "none".to_string()));
-                println!("Catalog Name: {}", expected_name);
-                println!("API Project ID: {} | Returned Name: {}", parsed.data.id, parsed.data.name);
+                    select_latest_file(&parsed.data.latest_files, None)
+                        .unwrap();
+                let (hash_type, hash_val) = select_supported_hash(
+                    latest_file.hashes.as_deref().unwrap_or(&[]),
+                )
+                .unwrap_or(("none", "none".to_string()));
+                println!("Catalog Name: {expected_name}");
+                println!(
+                    "API Project ID: {} | Returned Name: {}",
+                    parsed.data.id, parsed.data.name
+                );
                 println!(
                     "Latest File ID: {} | File Name: {} | Release Type: {}",
                     latest_file.id,
@@ -2539,7 +2687,10 @@ mod tests {
                         .map(|t| t.to_string())
                         .unwrap_or_else(|| "unknown".to_string())
                 );
-                println!("Download URL: {}", latest_file.download_url.as_deref().unwrap_or("<BLOCKED>"));
+                println!(
+                    "Download URL: {}",
+                    latest_file.download_url.as_deref().unwrap_or("<BLOCKED>")
+                );
                 println!("Hash ({hash_type}): {hash_val}");
                 println!("---");
             }

@@ -299,18 +299,6 @@
   "button.upload-image": {
     "defaultMessage": "Завантажити зображення"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Щойно"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "App"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosting"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Платформа"
-  },
   "collections.label.private": {
     "defaultMessage": "Приватно"
   },

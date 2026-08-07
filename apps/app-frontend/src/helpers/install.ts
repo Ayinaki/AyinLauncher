@@ -369,5 +369,3 @@ export async function scan_downloads_for_blocked_mods(
 		blockedMods,
 	})
 }
-
-

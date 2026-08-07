@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { DualSkinPreview, injectNotificationManager } from '@modrinth/ui'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 
-import { get_available_skins, get_normalized_skin_texture, determineModelType, SkinModel } from '@/helpers/skins'
-import { useTheming } from '@/store/state'
-
+import type { SkinModel } from '@/helpers/skins'
+import {
+	determineModelType,
+	get_available_skins,
+	get_normalized_skin_texture,
+} from '@/helpers/skins'
 const PARTNER_SKIN = `https://mc-heads.net/skin/Ayinaki`
 
 const { handleError } = injectNotificationManager()
-const themeStore = useTheming()
-
 const skinTexture = ref('')
 const skinModel = ref<SkinModel>('CLASSIC')
 const partnerModel = ref<SkinModel>('CLASSIC')

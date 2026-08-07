@@ -24,18 +24,27 @@ watch(
 	() => route.path,
 	(path) => {
 		if (path.startsWith('/library')) {
-			list().catch(handleError).then((result) => {
-				if (result) instances.value = result
-			})
+			list()
+				.catch(handleError)
+				.then((result) => {
+					if (result) instances.value = result
+				})
 		}
 	},
 )
 
-const unlistenInstance = await instance_listener(async (e: { instance_id: string; event: string }) => {
-	if (e?.event === 'added' || e?.event === 'created' || e?.event === 'removed' || e?.event === 'synced') {
-		instances.value = await list().catch(handleError)
-	}
-})
+const unlistenInstance = await instance_listener(
+	async (e: { instance_id: string; event: string }) => {
+		if (
+			e?.event === 'added' ||
+			e?.event === 'created' ||
+			e?.event === 'removed' ||
+			e?.event === 'synced'
+		) {
+			instances.value = await list().catch(handleError)
+		}
+	},
+)
 onUnmounted(() => {
 	unlistenInstance()
 })

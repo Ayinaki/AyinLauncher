@@ -134,12 +134,6 @@
   "button.upload-image": {
     "defaultMessage": "Lataa kuva"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Juuri nyt"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "Sovellus"
-  },
   "collections.label.private": {
     "defaultMessage": "Yksityinen"
   },
@@ -570,4 +564,3 @@
     "defaultMessage": "Sinulla on tallentamattomia muutoksia."
   }
 }
-

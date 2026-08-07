@@ -43,8 +43,8 @@ watch(
 		<div>
 			<h2 class="m-0 text-lg font-semibold text-contrast">Discord RPC</h2>
 			<p class="m-0 mt-1 text-sm">
-				Manages the Discord Rich Presence integration. Disabling this will cause 'Ayin Studio' to
-				no longer show up as a game or app you are using on your Discord profile.
+				Manages the Discord Rich Presence integration. Disabling this will cause 'Ayin Studio' to no
+				longer show up as a game or app you are using on your Discord profile.
 			</p>
 			<p class="m-0 mt-2 text-sm">
 				Note: This will not prevent any instance-specific Discord Rich Presence integrations, such

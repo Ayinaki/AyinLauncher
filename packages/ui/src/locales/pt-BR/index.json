@@ -305,18 +305,6 @@
   "button.upload-image": {
     "defaultMessage": "Inserir imagem"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Agora pouco"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "App"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosting"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Plataforma"
-  },
   "collections.label.private": {
     "defaultMessage": "Privado"
   },

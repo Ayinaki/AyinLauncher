@@ -302,18 +302,6 @@
   "button.upload-image": {
     "defaultMessage": "Görsel yükle"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Şimdi"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "Uygulama"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosting"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Platform"
-  },
   "collections.label.private": {
     "defaultMessage": "Gizli"
   },

@@ -701,7 +701,10 @@ pub async fn write_cached_icon(
 
     let path = io::canonicalize(path)?;
     let path_str = path.to_string_lossy().to_string();
-    let clean_str = path_str.strip_prefix(r"\\?\").unwrap_or(&path_str).to_string();
+    let clean_str = path_str
+        .strip_prefix(r"\\?\")
+        .unwrap_or(&path_str)
+        .to_string();
     Ok(PathBuf::from(clean_str))
 }
 

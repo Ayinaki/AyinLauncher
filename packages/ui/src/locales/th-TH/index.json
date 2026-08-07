@@ -107,9 +107,6 @@
   "button.upload-image": {
     "defaultMessage": "อัพโหลดภาพ"
   },
-  "changelog.justNow": {
-    "defaultMessage": "ตอนนี้"
-  },
   "content.page-layout.update-all": {
     "defaultMessage": "อัปเดตทั้งหมด"
   },
@@ -648,4 +645,3 @@
     "defaultMessage": "โปรไฟล์สาธารณะ"
   }
 }
-

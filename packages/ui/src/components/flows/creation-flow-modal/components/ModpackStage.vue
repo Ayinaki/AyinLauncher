@@ -32,9 +32,7 @@
 		<div class="flex gap-3">
 			<OverflowMenu
 				placement="bottom-start"
-				:options="[
-					{ id: formatMessage(messages.importModrinthModpack), action: triggerFileInput }
-				]"
+				:options="[{ id: formatMessage(messages.importModrinthModpack), action: triggerFileInput }]"
 			>
 				<ButtonStyled type="outlined">
 					<button

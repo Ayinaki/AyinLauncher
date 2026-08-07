@@ -48,7 +48,7 @@ export function setupCreationModal(notificationManager: AbstractWebNotificationM
 	provide('showCreationModal', () => {
 		installationModal.value?.show()
 	})
-	
+
 	provide('installationModal', installationModal)
 
 	async function proceedWithModpackCreation(
@@ -211,4 +211,3 @@ export function setupCreationModal(notificationManager: AbstractWebNotificationM
 		handleModpackDuplicateGoToInstance,
 	}
 }
-

@@ -51,10 +51,7 @@ async function startUpdate() {
 				case 'Progress':
 					downloaded += event.data.chunkLength
 					if (contentLength > 0) {
-						downloadPercent.value = Math.min(
-							99,
-							Math.round((downloaded / contentLength) * 100),
-						)
+						downloadPercent.value = Math.min(99, Math.round((downloaded / contentLength) * 100))
 					}
 					break
 				case 'Finished':
@@ -64,9 +61,10 @@ async function startUpdate() {
 		})
 
 		stage.value = 'installed'
-	} catch (err: any) {
+	} catch (err) {
 		console.error('Failed to download and install update:', err)
-		downloadError.value = err?.message || 'An error occurred during update installation.'
+		downloadError.value =
+			err instanceof Error ? err.message : 'An error occurred during update installation.'
 		stage.value = 'available'
 	}
 }

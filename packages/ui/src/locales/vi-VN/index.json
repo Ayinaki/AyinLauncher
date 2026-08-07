@@ -299,18 +299,6 @@
   "button.upload-image": {
     "defaultMessage": "Tải ảnh lên"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Vừa xong"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "Ứng dụng"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosting"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Nền tảng"
-  },
   "collections.label.private": {
     "defaultMessage": "Riêng tư"
   },
@@ -5097,4 +5085,3 @@
     "defaultMessage": "Đội ngũ Modrinth"
   }
 }
-

@@ -302,18 +302,6 @@
   "button.upload-image": {
     "defaultMessage": "Ladda upp bild"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Just nu"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "App"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosting"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Plattform"
-  },
   "collections.label.private": {
     "defaultMessage": "Privat"
   },
@@ -3582,4 +3570,3 @@
     "defaultMessage": "Du har osparade ändringar."
   }
 }
-

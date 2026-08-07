@@ -176,18 +176,6 @@
   "button.upload-image": {
     "defaultMessage": "Last opp bilde"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Akkurat nå"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "App"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosting"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Plattform"
-  },
   "collections.label.private": {
     "defaultMessage": "Privat"
   },
@@ -2133,4 +2121,3 @@
     "defaultMessage": "Du har ulagrede endringer."
   }
 }
-

@@ -191,18 +191,6 @@
   "button.upload-image": {
     "defaultMessage": "I-upload ang imahe"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Ngayon lang"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "App"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosting"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Plataporma"
-  },
   "collections.label.private": {
     "defaultMessage": "Pribado"
   },
@@ -2739,4 +2727,3 @@
     "defaultMessage": "Koponan ng Modrinth"
   }
 }
-

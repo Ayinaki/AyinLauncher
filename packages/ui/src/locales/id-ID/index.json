@@ -299,18 +299,6 @@
   "button.upload-image": {
     "defaultMessage": "Unggah gambar"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Baru saja"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "Aplikasi"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Pengehosan"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Platform"
-  },
   "collections.label.private": {
     "defaultMessage": "Pribadi"
   },
@@ -2997,4 +2985,3 @@
     "defaultMessage": "Anda memiliki perubahan yang belum tersimpan."
   }
 }
-

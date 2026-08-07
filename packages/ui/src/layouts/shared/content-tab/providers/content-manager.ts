@@ -86,7 +86,9 @@ export interface ContentManagerContext {
 	// CurseForge catalog-pack version switching (optional — only provided for
 	// CF-linked instances). When `modpackVersions` is provided the pack card
 	// renders an inline version dropdown; otherwise no dropdown is shown.
-	modpackVersions?: Ref<ContentModpackVersionOption[] | null> | ComputedRef<ContentModpackVersionOption[] | null>
+	modpackVersions?:
+		| Ref<ContentModpackVersionOption[] | null>
+		| ComputedRef<ContentModpackVersionOption[] | null>
 	modpackVersionsLoading?: Ref<boolean> | ComputedRef<boolean>
 	modpackVersionsError?: Ref<string | null> | ComputedRef<string | null>
 	modpackVersionsBusy?: Ref<boolean> | ComputedRef<boolean>

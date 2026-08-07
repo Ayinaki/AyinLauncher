@@ -8,7 +8,6 @@ import {
 	ShieldIcon,
 	ToggleRightIcon,
 } from '@modrinth/assets'
-import AyinAppLogo from '@/assets/ayin_app.svg?component'
 import {
 	commonSettingsMessages,
 	defineMessage,
@@ -21,6 +20,7 @@ import { getVersion } from '@tauri-apps/api/app'
 import { platform as getOsPlatform, version as getOsVersion } from '@tauri-apps/plugin-os'
 import { ref, watch } from 'vue'
 
+import AyinAppLogo from '@/assets/ayin_app.svg?component'
 import AppearanceSettings from '@/components/ui/settings/AppearanceSettings.vue'
 import DefaultInstanceSettings from '@/components/ui/settings/DefaultInstanceSettings.vue'
 import FeatureFlagSettings from '@/components/ui/settings/FeatureFlagSettings.vue'

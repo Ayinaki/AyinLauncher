@@ -10,21 +10,9 @@
 		"active": true,
 		"category": "Game",
 		"copyright": "",
-		"targets": [
-			"nsis",
-			"app",
-			"dmg",
-			"deb",
-			"appimage",
-			"rpm"
-		],
+		"targets": ["nsis", "app", "dmg", "deb", "appimage", "rpm"],
 		"externalBin": [],
-		"icon": [
-			"icons/128x128.png",
-			"icons/128x128@2x.png",
-			"icons/icon.icns",
-			"icons/icon.ico"
-		],
+		"icon": ["icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
 		"windows": {
 			"nsis": {
 				"installMode": "currentUser",
@@ -97,12 +85,7 @@
 				],
 				"enable": true
 			},
-			"capabilities": [
-				"ads",
-				"core",
-				"plugins",
-				"updater"
-			],
+			"capabilities": ["ads", "core", "plugins", "updater"],
 			"csp": {
 				"default-src": "'self' customprotocol: asset:",
 				"connect-src": "ipc: http://ipc.localhost https://modrinth.com https://*.modrinth.com https://*.nodes.modrinth.com https://*.posthog.com https://posthog.modrinth.com https://*.sentry.io https://api.mclo.gs http://textures.minecraft.net https://textures.minecraft.net https://js.stripe.com https://*.stripe.com wss://*.stripe.com https://*.intercom.io wss://*.intercom.io https://*.intercomcdn.com https://www.intercom-reporting.com https://app.getsentry.com wss://*.nodes.modrinth.com https://*.taila228c5.ts.net https://*.taila228c5.ts.net wss://*.taila228c5.ts.net https://fill.papermc.io https://api.purpurmc.org https://cdn.ayinstudio.live https://cdn.ayin.fun https://fonts.googleapis.com https://ayin-studio.noticeable.news 'self' data: blob:",

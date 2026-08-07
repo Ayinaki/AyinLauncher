@@ -293,18 +293,6 @@
   "button.upload-image": {
     "defaultMessage": "Kép feltöltése"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Éppen most"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "Alkalmazás"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosztolás"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Platform"
-  },
   "collections.label.private": {
     "defaultMessage": "Privát"
   },

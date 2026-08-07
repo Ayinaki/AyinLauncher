@@ -221,10 +221,18 @@ async fn prepare_initial_instance(
             if let Some(src_path_str) = import_path {
                 let src_path = PathBuf::from(&src_path_str);
                 if src_path.exists() {
-                    let instance_full_path = state.directories.instances_dir().join(&metadata.instance.path);
-                    let _ = copy_dir_all_recursive(&src_path, &instance_full_path).await;
+                    let instance_full_path = state
+                        .directories
+                        .instances_dir()
+                        .join(&metadata.instance.path);
+                    let _ =
+                        copy_dir_all_recursive(&src_path, &instance_full_path)
+                            .await;
                     let _ = tokio::fs::remove_dir_all(&src_path).await;
-                    let _ = crate::api::worlds::servers::write_default(&instance_full_path).await;
+                    let _ = crate::api::worlds::servers::write_default(
+                        &instance_full_path,
+                    )
+                    .await;
                 }
             }
 
@@ -485,7 +493,9 @@ async fn run_request(
             // instance keeps the pack name in the entry); fall back to the
             // instance name for file-based packs.
             let pack_name = match &location {
-                CreatePackLocation::FromVersionId { title, .. } => Some(title.clone()),
+                CreatePackLocation::FromVersionId { title, .. } => {
+                    Some(title.clone())
+                }
                 CreatePackLocation::FromFile { .. } => None,
             };
             install_pack(
@@ -497,8 +507,13 @@ async fn run_request(
             )
             .await?;
             apply_post_install_edit(&instance_id, post_install_edit).await?;
-            if let Some(instance) = crate::state::get_instance(&instance_id, &state.pool).await? {
-                let instance_full_path = state.directories.instances_dir().join(&instance.instance.path);
+            if let Some(instance) =
+                crate::state::get_instance(&instance_id, &state.pool).await?
+            {
+                let instance_full_path = state
+                    .directories
+                    .instances_dir()
+                    .join(&instance.instance.path);
                 let _ = crate::api::worlds::servers::write_default_with_name(
                     &instance_full_path,
                     pack_name.as_deref().or(Some(&instance.instance.name)),
@@ -537,9 +552,17 @@ async fn run_request(
                 InstallProgressReporter::new(job_id, job_state.clone()),
             )
             .await?;
-            if let Some(instance) = crate::state::get_instance(&instance_id, &state.pool).await? {
-                let instance_full_path = state.directories.instances_dir().join(&instance.instance.path);
-                let _ = crate::api::worlds::servers::write_default(&instance_full_path).await;
+            if let Some(instance) =
+                crate::state::get_instance(&instance_id, &state.pool).await?
+            {
+                let instance_full_path = state
+                    .directories
+                    .instances_dir()
+                    .join(&instance.instance.path);
+                let _ = crate::api::worlds::servers::write_default(
+                    &instance_full_path,
+                )
+                .await;
             }
             Ok(Some(instance_id))
         }
@@ -1019,7 +1042,10 @@ fn modpack_details(location: &CreatePackLocation) -> InstallPhaseDetails {
     }
 }
 
-async fn copy_dir_all_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+async fn copy_dir_all_recursive(
+    src: &std::path::Path,
+    dst: &std::path::Path,
+) -> std::io::Result<()> {
     tokio::fs::create_dir_all(dst).await?;
     let mut entries = tokio::fs::read_dir(src).await?;
     while let Ok(Some(entry)) = entries.next_entry().await {

@@ -305,18 +305,6 @@
   "button.upload-image": {
     "defaultMessage": "Upload image"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Just now"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "App"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosting"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Platform"
-  },
   "collection-widget.empty-collection": {
     "defaultMessage": "This collection is empty."
   },
@@ -500,14 +488,38 @@
   "content.inline-backup.world-label": {
     "defaultMessage": "world"
   },
+  "content.modpack-card.alpha": {
+    "defaultMessage": "Alpha"
+  },
+  "content.modpack-card.beta": {
+    "defaultMessage": "Beta"
+  },
   "content.modpack-card.content-hint-description": {
     "defaultMessage": "Your modpack's content can now be found here!"
   },
   "content.modpack-card.content-hint-title": {
     "defaultMessage": "Modpack content moved"
   },
+  "content.modpack-card.currently-installed": {
+    "defaultMessage": "Currently Installed"
+  },
   "content.modpack-card.dismiss-hint": {
     "defaultMessage": "Don't show again"
+  },
+  "content.modpack-card.latest": {
+    "defaultMessage": "Latest"
+  },
+  "content.modpack-card.loading-versions": {
+    "defaultMessage": "Loading versions..."
+  },
+  "content.modpack-card.no-versions": {
+    "defaultMessage": "No other versions available"
+  },
+  "content.modpack-card.release": {
+    "defaultMessage": "Release"
+  },
+  "content.modpack-card.version-dropdown": {
+    "defaultMessage": "Modpack version"
   },
   "content.page-layout.additional-content": {
     "defaultMessage": "Additional content"
@@ -832,6 +844,9 @@
   },
   "creation-flow.modal.modpack.action.import": {
     "defaultMessage": "Import modpack"
+  },
+  "creation-flow.modal.modpack.action.import.modrinth": {
+    "defaultMessage": "Import Modrinth Modpack (.mrpack)"
   },
   "creation-flow.modal.modpack.known-modpack.prompt": {
     "defaultMessage": "Already know the modpack you want to install?"

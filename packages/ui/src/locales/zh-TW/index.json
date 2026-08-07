@@ -305,18 +305,6 @@
   "button.upload-image": {
     "defaultMessage": "上傳圖片"
   },
-  "changelog.justNow": {
-    "defaultMessage": "現在"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "App"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosting"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "平臺"
-  },
   "collections.label.private": {
     "defaultMessage": "私人"
   },
@@ -5691,4 +5679,3 @@
     "defaultMessage": "類型"
   }
 }
-

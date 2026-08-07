@@ -175,33 +175,36 @@ async fn resolve_icon_path(
         return Ok(None);
     };
 
-    let (bytes, file_name) = if icon.starts_with("https://")
-        || icon.starts_with("http://")
-    {
-        match fetch::fetch(
-            icon,
-            None,
-            None,
-            None,
-            &state.fetch_semaphore,
-            &state.pool,
-        )
-        .await {
-            Ok(fetched) => {
-                let name = icon.rsplit('/').next().unwrap_or("icon").to_string();
-                (fetched, name)
+    let (bytes, file_name) =
+        if icon.starts_with("https://") || icon.starts_with("http://") {
+            match fetch::fetch(
+                icon,
+                None,
+                None,
+                None,
+                &state.fetch_semaphore,
+                &state.pool,
+            )
+            .await
+            {
+                Ok(fetched) => {
+                    let name =
+                        icon.rsplit('/').next().unwrap_or("icon").to_string();
+                    (fetched, name)
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to fetch remote instance icon from {icon}: {e}"
+                    );
+                    return Ok(Some(icon.to_string()));
+                }
             }
-            Err(e) => {
-                tracing::warn!("Failed to fetch remote instance icon from {icon}: {e}");
-                return Ok(Some(icon.to_string()));
+        } else {
+            match io::read(state.directories.caches_dir().join(icon)).await {
+                Ok(data) => (bytes::Bytes::from(data), icon.to_string()),
+                Err(_) => return Ok(Some(icon.to_string())),
             }
-        }
-    } else {
-        match io::read(state.directories.caches_dir().join(icon)).await {
-            Ok(data) => (bytes::Bytes::from(data), icon.to_string()),
-            Err(_) => return Ok(Some(icon.to_string())),
-        }
-    };
+        };
 
     match write_cached_icon(
         &file_name,
@@ -209,10 +212,14 @@ async fn resolve_icon_path(
         bytes,
         &state.io_semaphore,
     )
-    .await {
+    .await
+    {
         Ok(file) => {
             let file_str = file.to_string_lossy().to_string();
-            let clean = file_str.strip_prefix(r"\\?\").unwrap_or(&file_str).to_string();
+            let clean = file_str
+                .strip_prefix(r"\\?\")
+                .unwrap_or(&file_str)
+                .to_string();
             Ok(Some(clean))
         }
         Err(_) => Ok(Some(icon.to_string())),

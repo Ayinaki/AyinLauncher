@@ -396,7 +396,10 @@ onUnmounted(() => {
 										<CircleAlertIcon class="size-5 shrink-0" />
 										<span class="min-w-0 break-words">{{ props.versionError }}</span>
 									</div>
-									<div v-else-if="!props.versionOptions?.length" class="px-2 py-6 text-sm text-secondary">
+									<div
+										v-else-if="!props.versionOptions?.length"
+										class="px-2 py-6 text-sm text-secondary"
+									>
 										{{ formatMessage(messages.noVersions) }}
 									</div>
 									<template v-else>
@@ -420,7 +423,9 @@ onUnmounted(() => {
 														{{ releaseTypeLabel(option.releaseType) }}
 													</span>
 													<span
-														v-if="isLatestVersion(option.fileId) && !isInstalledVersion(option.fileId)"
+														v-if="
+															isLatestVersion(option.fileId) && !isInstalledVersion(option.fileId)
+														"
 														class="rounded-full bg-surface-5 px-1.5 py-0.5 text-[10px] font-semibold text-contrast"
 													>
 														{{ formatMessage(messages.latest) }}

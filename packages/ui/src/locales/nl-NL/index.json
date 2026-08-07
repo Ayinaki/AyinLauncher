@@ -275,18 +275,6 @@
   "button.upload-image": {
     "defaultMessage": "Afbeelding uploaden"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Zojuist"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "App"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hosten"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Platform"
-  },
   "collections.label.private": {
     "defaultMessage": "Privé"
   },

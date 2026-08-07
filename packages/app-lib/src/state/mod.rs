@@ -169,9 +169,13 @@ impl State {
             let new_dir = data_dir.join(&app_identifier);
             if old_dir.exists() && !new_dir.exists() {
                 if let Err(e) = std::fs::rename(&old_dir, &new_dir) {
-                    tracing::error!("Failed to migrate old app directory to new app identifier: {e}");
+                    tracing::error!(
+                        "Failed to migrate old app directory to new app identifier: {e}"
+                    );
                 } else {
-                    tracing::info!("Successfully migrated app data directory to {new_dir:?}");
+                    tracing::info!(
+                        "Successfully migrated app data directory to {new_dir:?}"
+                    );
                 }
             }
         }

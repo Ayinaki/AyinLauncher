@@ -302,18 +302,6 @@
   "button.upload-image": {
     "defaultMessage": "Subir imagen"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Ahora mismo"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "Aplicación"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Alojamiento"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Plataforma"
-  },
   "collections.label.private": {
     "defaultMessage": "Privado"
   },

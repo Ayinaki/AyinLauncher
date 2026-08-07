@@ -4,9 +4,9 @@ use super::model::{
 };
 use super::store;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use std::time::Instant;
 
 #[derive(Clone, Debug)]
 pub struct InstallProgressReporter {
@@ -36,7 +36,7 @@ impl InstallProgressReporter {
         let mut should_emit = false;
         let mut last_emitted = self.last_emitted.lock().await;
         let now = Instant::now();
-        
+
         if state.progress.phase != phase {
             should_emit = true;
         } else if let Some(last) = *last_emitted {
@@ -53,7 +53,8 @@ impl InstallProgressReporter {
 
         if should_emit {
             *last_emitted = Some(now);
-            let record = store::update_state(self.job_id, &state, &app_state).await?;
+            let record =
+                store::update_state(self.job_id, &state, &app_state).await?;
             emit_install_job(&record.snapshot()).await?;
         }
 

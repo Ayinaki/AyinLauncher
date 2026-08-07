@@ -224,18 +224,6 @@
   "button.upload-image": {
     "defaultMessage": "رفع صورة"
   },
-  "changelog.justNow": {
-    "defaultMessage": "الآن فقط"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "تطبيق"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "المضيف"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "منصّة"
-  },
   "collections.label.private": {
     "defaultMessage": "خاص"
   },
@@ -735,4 +723,3 @@
     "defaultMessage": "ماينكرافت: إصدار جافا"
   }
 }
-

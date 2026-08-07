@@ -248,18 +248,6 @@
   "button.upload-image": {
     "defaultMessage": "Carregar imagem"
   },
-  "changelog.justNow": {
-    "defaultMessage": "Agora mesmo"
-  },
-  "changelog.product.app": {
-    "defaultMessage": "App"
-  },
-  "changelog.product.hosting": {
-    "defaultMessage": "Hospedagem"
-  },
-  "changelog.product.web": {
-    "defaultMessage": "Plataforma"
-  },
   "collections.label.private": {
     "defaultMessage": "Privada"
   },
@@ -2538,4 +2526,3 @@
     "defaultMessage": "Tens alterações por guardar."
   }
 }
-

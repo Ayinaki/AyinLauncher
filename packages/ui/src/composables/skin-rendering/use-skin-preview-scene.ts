@@ -23,14 +23,19 @@ import type { SkinPreviewTuple } from './types'
 
 const SKIN_LAYER_DEPTH_BIAS = -1
 const loadingManager = new THREE.LoadingManager()
-loadingManager.onError = (url) => {
+loadingManager.onError = (_url) => {
 	// Silence warnings for placeholder fallback textures (e.g. sunny.png, steve.png, cape) baked into GLTF file metadata
 	// since useSkinPreviewScene dynamically applies the active player skin and cape textures immediately after load.
 }
 const gltfLoader = new GLTFLoader(loadingManager)
-const gltfCache = new Map<string, Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>>()
+const gltfCache = new Map<
+	string,
+	Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>
+>()
 
-function fetchGLTF(src: string): Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }> {
+function fetchGLTF(
+	src: string,
+): Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }> {
 	let cached = gltfCache.get(src)
 	if (!cached) {
 		cached = new Promise((resolve, reject) => {

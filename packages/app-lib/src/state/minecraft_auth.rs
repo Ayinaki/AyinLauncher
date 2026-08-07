@@ -231,9 +231,7 @@ pub(super) static IN_FLIGHT_PROFILES: Mutex<
 /// In-flight task deduplication for get_default_credential calls.
 static IN_FLIGHT_DEFAULT_CREDENTIAL: Mutex<
     Option<
-        tokio::sync::broadcast::Sender<
-            Arc<crate::Result<Option<Credentials>>>,
-        >,
+        tokio::sync::broadcast::Sender<Arc<crate::Result<Option<Credentials>>>>,
     >,
 > = Mutex::const_new(None);
 
@@ -1690,14 +1688,19 @@ where
     let mut resp = reqwest_request().await;
     for i in 0..RETRY_COUNT {
         match &resp {
-            Ok(response) if response.status() == StatusCode::TOO_MANY_REQUESTS => {
+            Ok(response)
+                if response.status() == StatusCode::TOO_MANY_REQUESTS =>
+            {
                 if i < RETRY_COUNT - 1 {
                     let wait_duration = response
                         .headers()
                         .get(reqwest::header::RETRY_AFTER)
                         .and_then(|x| x.to_str().ok())
                         .and_then(|x| x.parse::<u64>().ok())
-                        .map_or(std::time::Duration::from_secs(2), std::time::Duration::from_secs);
+                        .map_or(
+                            std::time::Duration::from_secs(2),
+                            std::time::Duration::from_secs,
+                        );
 
                     tracing::warn!(
                         "Received 429 Too Many Requests, sleeping for {:?} before retrying...",

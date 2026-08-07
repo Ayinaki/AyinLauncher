@@ -9,8 +9,7 @@
 				<key>CFBundleURLName</key>
 				<string>AyinLauncher</string>
 				<key>CFBundleURLSchemes</key>
-				<array>
-				</array>
+				<array />
 			</dict>
 		</array>
 		<key>NSCameraUsageDescription</key>

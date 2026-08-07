@@ -971,7 +971,8 @@ pub async fn launch_minecraft(
             command.env("USERPROFILE", userprofile);
         }
 
-        for (var, subdir) in [("LOCALAPPDATA", "Local"), ("APPDATA", "Roaming")] {
+        for (var, subdir) in [("LOCALAPPDATA", "Local"), ("APPDATA", "Roaming")]
+        {
             match std::env::var(var).ok().filter(|v| !v.trim().is_empty()) {
                 Some(value) => {
                     command.env(var, value);

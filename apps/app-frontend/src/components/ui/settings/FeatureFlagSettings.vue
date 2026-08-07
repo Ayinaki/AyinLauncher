@@ -31,8 +31,12 @@ watch(
 				<h2 class="m-0 text-lg font-semibold text-contrast capitalize">
 					{{ option.replaceAll('_', ' ') }}
 				</h2>
-				<p v-if="option === 'curseforge_browsing_enabled'" class="m-0 mt-1 text-sm text-secondary max-w-sm">
-					In-app CurseForge browsing/search is pending an approved API key from Overwolf's third-party developer program.
+				<p
+					v-if="option === 'curseforge_browsing_enabled'"
+					class="m-0 mt-1 text-sm text-secondary max-w-sm"
+				>
+					In-app CurseForge browsing/search is pending an approved API key from Overwolf's
+					third-party developer program.
 				</p>
 			</div>
 			<div class="flex items-center gap-2">

@@ -1,7 +1,7 @@
 use crate::api::Result;
 use theseus::pack::curseforge_pack::{
-    self, BlockedMod, BlockedModScanResult, CfPackFilesResult, CurseForgeCatalogPack,
-    CurseForgeImportResult,
+    self, BlockedMod, BlockedModScanResult, CfPackFilesResult,
+    CurseForgeCatalogPack, CurseForgeImportResult,
 };
 
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
@@ -18,7 +18,8 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 }
 
 #[tauri::command]
-pub async fn get_curseforge_catalog() -> Result<Option<Vec<CurseForgeCatalogPack>>> {
+pub async fn get_curseforge_catalog()
+-> Result<Option<Vec<CurseForgeCatalogPack>>> {
     Ok(curseforge_pack::get_curseforge_catalog().await)
 }
 
@@ -39,9 +40,7 @@ pub async fn install_curseforge_catalog_pack(
 }
 
 #[tauri::command]
-pub async fn check_curseforge_pack_update(
-    instance_id: String,
-) -> Result<bool> {
+pub async fn check_curseforge_pack_update(instance_id: String) -> Result<bool> {
     Ok(curseforge_pack::check_curseforge_pack_update(instance_id).await?)
 }
 
@@ -57,7 +56,10 @@ pub async fn change_curseforge_pack_version(
     instance_id: String,
     file_id: u32,
 ) -> Result<CurseForgeImportResult> {
-    Ok(curseforge_pack::change_curseforge_pack_version(instance_id, file_id).await?)
+    Ok(
+        curseforge_pack::change_curseforge_pack_version(instance_id, file_id)
+            .await?,
+    )
 }
 
 #[tauri::command]
@@ -65,5 +67,9 @@ pub async fn scan_downloads_for_blocked_mods(
     instance_id: String,
     blocked_mods: Vec<BlockedMod>,
 ) -> Result<BlockedModScanResult> {
-    Ok(curseforge_pack::scan_downloads_for_blocked_mods(instance_id, blocked_mods).await?)
+    Ok(curseforge_pack::scan_downloads_for_blocked_mods(
+        instance_id,
+        blocked_mods,
+    )
+    .await?)
 }
