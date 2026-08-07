@@ -62,7 +62,7 @@ jobs:
 
   build:
     name: Lint and Test
-    runs-on: ${{ needs.skip-if-clean.outputs.internal == 'true' && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     needs: [skip-if-clean]
     if: ${{ needs.skip-if-clean.outputs.skip != 'true' }}
     timeout-minutes: 45
@@ -78,8 +78,6 @@ jobs:
       # while developing)
       RUSTFLAGS: -Dwarnings
       # sccache config (Note: A remote backend like S3 would improve cross-run cache hits if secrets are added later)
-      SCCACHE_DIR: ${{ needs.skip-if-clean.outputs.internal == 'true' && '/mnt/sccache' || '' }}
-      SCCACHE_CACHE_SIZE: ${{ needs.skip-if-clean.outputs.internal == 'true' && '10G' || '' }}
       RUSTC_WRAPPER: sccache
 
     steps:
@@ -142,13 +140,6 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-rust-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-rust-target-
-
-      - name: Mount sccache disk cache
-        if: needs.skip-if-clean.outputs.internal == 'true'
-        uses: useblacksmith/stickydisk@13af8883542ca949a717e70fef89d15edbb29d88 # v1.2.0
-        with:
-          key: ${{ github.repository }}-turbo-sccache
-          path: /mnt/sccache
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
