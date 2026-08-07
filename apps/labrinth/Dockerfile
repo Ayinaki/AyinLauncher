@@ -2,7 +2,7 @@
 
 FROM debian:trixie-slim
 
-LABEL org.opencontainers.image.source=https://github.com/modrinth/code
+LABEL org.opencontainers.image.source=https://github.com/Ayinaki/AyinLauncher
 LABEL org.opencontainers.image.title=labrinth
 LABEL org.opencontainers.image.description="Modrinth API"
 LABEL org.opencontainers.image.licenses=AGPL-3.0-only

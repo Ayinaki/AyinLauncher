@@ -23,7 +23,7 @@ const PRODUCT_SUMMARY_MAP: Record<string, Product> = {
 }
 
 const GITHUB_API = 'https://api.github.com'
-const REPO = 'modrinth/code'
+const REPO = 'Ayinaki/AyinLauncher'
 
 interface ParsedChangelog {
 	entries: Map<Product, Map<string, string[]>>

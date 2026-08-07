@@ -4,7 +4,7 @@ name = "theseus_gui"
 version = "1.0.0-local"
 edition.workspace = true
 description = "The Ayin Launcher is a desktop application for managing your Minecraft mods"
-repository = "https://github.com/ayin-studio/hippolytus"
+repository = "https://github.com/Ayinaki/AyinLauncher"
 license = "GPL-3.0-only"
 
 [dependencies]

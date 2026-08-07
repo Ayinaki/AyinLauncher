@@ -2,7 +2,7 @@
 
 FROM debian:trixie-slim
 
-LABEL org.opencontainers.image.source=https://github.com/modrinth/code
+LABEL org.opencontainers.image.source=https://github.com/Ayinaki/AyinLauncher
 LABEL org.opencontainers.image.title=daedalus
 LABEL org.opencontainers.image.description="Modrinth game metadata query client"
 LABEL org.opencontainers.image.licenses=MIT
